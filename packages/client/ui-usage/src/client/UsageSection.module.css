@@ -1,0 +1,361 @@
+/* Usage dashboard section (Codex-style overview). All colors ride the
+   theme tokens; the heatmap blends the brand accent over the surface. */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.sectionHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600;
+  color: var(--dsw-alias-label-primary);
+}
+
+.sectionSubtitle {
+  margin: 0;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.statRow {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.statCard {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+.statLabel {
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.statValue {
+  white-space: nowrap;
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--dsw-alias-label-primary);
+}
+
+.statSub {
+  white-space: nowrap;
+  font-size: 10px;
+  line-height: 14px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.card {
+  /* The activity grid can scroll inside this elevated card, so inherit the
+     l2 scrollbar pair instead of the page-level l1 thumb. */
+  --dsh-scrollbar-thumb: var(--dsw-alias-scrollbar-bg-l2);
+  --dsh-scrollbar-thumb-hover: var(--dsw-alias-scrollbar-hover-l2);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 600;
+  color: var(--dsw-alias-label-primary);
+}
+
+.segmented {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-2);
+}
+
+.segmented button {
+  border: none;
+  border-radius: 6px;
+  padding: 3px 10px;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.segmented button:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.segmentActive {
+  background: var(--dsw-alias-bg-overlay) !important;
+  color: var(--dsw-alias-label-primary) !important;
+  box-shadow: var(--dsw-shadow-lv3);
+}
+
+.gridWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  /* The 53-week grid is sized to the card, so it never scrolls. */
+  overflow: hidden;
+}
+
+.gridLabels {
+  display: grid;
+  grid-template-columns: repeat(53, minmax(0, 1fr));
+  gap: 2px;
+  height: 14px;
+}
+
+.gridLabel {
+  font-size: 10px;
+  line-height: 14px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.grid {
+  display: flex;
+  gap: 2px;
+}
+
+.gridWeek {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.gridCell {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: transparent;
+}
+
+.legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  font-size: 10px;
+  line-height: 14px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.legendCell {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.cumulativeWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.cumulativeSvg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.cumulativeArea {
+  fill: var(--dsw-alias-brand-primary);
+  opacity: 0.14;
+}
+
+.cumulativeLine {
+  stroke: var(--dsw-alias-brand-primary);
+  stroke-width: 1.6;
+}
+
+.cumulativeAxis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  line-height: 14px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.insights {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.insightRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 0 10px;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--dsw-alias-border-l1);
+}
+
+.insightRow:last-child {
+  border-bottom: none;
+}
+
+.insightLabel {
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.insightValue {
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--dsw-alias-label-primary);
+}
+
+.insightSub {
+  grid-column: 1 / -1;
+  font-size: 10px;
+  line-height: 14px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.insightEmpty {
+  padding: 8px 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.toolList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.toolRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.toolGlyph {
+  flex: none;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.toolName {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-primary);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.toolBar {
+  flex: 1;
+  min-width: 0;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--dsw-alias-interactive-bg-hover);
+  overflow: hidden;
+}
+
+.toolBar i {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--dsw-alias-brand-primary);
+  opacity: 0.7;
+}
+
+.toolCount {
+  flex: none;
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--dsw-alias-label-secondary);
+  white-space: nowrap;
+}
+
+.pending {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 32px 8px;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.retry {
+  border: none;
+  border-radius: 8px;
+  padding: 4px 14px;
+  background: var(--dsw-alias-interactive-bg-hover);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-primary);
+}
+
+.retry:hover {
+  background: var(--dsw-specific-sidebar-nav-item-hover);
+}
+
+.heatEmpty {
+  padding: 14px 4px;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+}

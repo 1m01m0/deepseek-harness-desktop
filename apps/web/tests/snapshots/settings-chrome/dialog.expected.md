@@ -13,6 +13,9 @@
     - button "Agent 预设":
       - img
       - text: Agent 预设
+    - button "用量统计":
+      - img
+      - text: 用量统计
   - button "打开配置文件"
   - button "关闭":
     - img

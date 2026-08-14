@@ -273,6 +273,10 @@
     - id: ui-trajectory
       name: '@deepseek-ai/dsh-client-ui-trajectory'
 
+    # Usage dashboard: the Codex-style token/tool-call overview Settings section.
+    - id: ui-usage
+      name: '@deepseek-ai/dsh-client-ui-usage'
+
 # ── the agent plane moves behind agent presets ─────────────────────────────
 #
 # Every row below composes what ONE agent contributes to the host registries:

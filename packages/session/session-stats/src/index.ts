@@ -1,16 +1,17 @@
 /**
- * Function plugin registering the `sessionStats` projection unit: whole-log
- * turn/step counts and LLM/tool/first-token/decode wall times served through
- * the session-projection seam (registry snapshot, change feed, and every
- * projection carrier), so clients render full-session figures that paging and
- * compaction cannot change. The plugin owns only the fold; delivery is the
- * seam's.
+ * Function plugin registering the `sessionStats` and `usageStats` projection
+ * units: whole-log turn/step counts and LLM/tool/first-token/decode wall times,
+ * plus the per-day usage dashboard facts (tokens, tool/skill calls, request
+ * profile), served through the session-projection seam (registry snapshot,
+ * change feed, and every projection carrier), so clients render full-session
+ * figures that paging and compaction cannot change. The plugin owns only the
+ * fold; delivery is the seam's.
  *
  * @module @deepseek-ai/dsh-session-stats
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-import { sessionStatsProjectionDefinition } from './projection.ts'
+import { sessionStatsProjectionDefinition, usageStatsProjectionDefinition } from './projection.ts'
 
 export type * from './types.ts'
 
@@ -26,4 +27,5 @@ export const inject = ['sessionProjections']
  */
 export function apply(ctx: Context): void {
   ctx.sessionProjections.register(sessionStatsProjectionDefinition)
+  ctx.sessionProjections.register(usageStatsProjectionDefinition)
 }

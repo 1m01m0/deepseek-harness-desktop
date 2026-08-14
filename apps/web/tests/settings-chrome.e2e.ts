@@ -94,6 +94,13 @@ describe('web e2e: settings modal and General preferences', () => {
     await dialog.getByRole('button', { name: '模型' }).click()
     await expect.poll(() => dialog.getByRole('button', { name: '模型' }).getAttribute('aria-current'), { timeout: 5_000 }).toBe('true')
     expect(await dialog.getByRole('button', { name: '通用设置' }).getAttribute('aria-current')).toBeNull()
+    // Usage is a real assembled Settings plugin. Its empty state proves the
+    // lazy session.list request completed through the Web scaffold.
+    await dialog.getByRole('button', { name: '用量统计', exact: true }).click()
+    await dialog.getByRole('heading', { name: '用量统计', exact: true }).waitFor({ timeout: 10_000 })
+    await dialog.getByText('还没有用量记录。完成一次对话后，这里会展示 Token 与工具调用统计。', { exact: true })
+      .waitFor({ timeout: 10_000 })
+    expect(await dialog.getByRole('button', { name: '用量统计', exact: true }).getAttribute('aria-current')).toBe('true')
     // Plugins is a read-only projection of the same assembled Loader tree.
     // Capture one stable shipped row rather than the whole inventory so adding
     // an unrelated plugin does not rewrite this surface's golden.

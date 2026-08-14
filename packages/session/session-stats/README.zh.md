@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-注册 `sessionStats` projection 单元的函数插件：从步边界、流式 chunk、工具配对与已组装的 assistant 消息折叠出全日志会话数字——轮/步计数以及 LLM、工具、首 token、解码墙钟时间——经 session-projection 缝对外提供（registry 快照、变更流，以及每一个 projection 载体：history 尾页、`session/projection` 推送帧、会话列表行）。客户端由此渲染分页与压缩都无法改变的全会话数字；参考消费者是 Web 聊天统计条，其窗口折叠以相同字段名充当无单元时的回退。
+注册两个全日志 projection 单元的函数插件。`sessionStats` 为 Web 聊天统计条提供轮/步计数以及 LLM、工具、首 token、解码墙钟时间；`usageStats` 为 Web 用量统计页面提供每日 token、工具与技能计数，以及模型/推理配置。两个值都经过 session-projection registry 快照、变更流、history 尾页、`session/projection` 推送帧和会话列表行交付，因此分页与压缩不会改变其总量。
 
 ## 折叠语义
 
@@ -13,6 +13,13 @@
 - `decodeMs`/`decodeTokens` 累加首 token → 已组装消息的时长与提供方上报的输出 token，仅统计两者兼备的步。
 - `toolMs` 按 callId 配对累加 `tool/call` → `tool/result`；未解决的调用在 `turn/end` 时丢弃（结果总在其轮内落地）。
 - 每个字段在首个贡献事件之前均为 0。已装配的 registry 恒提供该键，客户端读取值本身，而非键的存在性。
+
+## 用量折叠语义
+
+- 来自 `assistant/chunk` 或 `assistant/message` 的提供方用量按 Host 本地日历日分组。同一 `(turn, step)` 的后续报告会替换先前报告，包括跨午夜的情况；计费输入等于未缓存输入加缓存读取与写入。
+- `tool/call` 会增加当日分桶与日志工具名计数。`skill` 调用还会增加从参数中解析出的非空字符串 `name`；参数格式错误或形状不同只影响工具计数。
+- `request/header` 更新当前模型与推理强度。其后的每条 `step/start` 都增加该配置的计数，因此请求头不变的连续请求仍会计入；从未进入步骤的请求头不计。
+- `firstAt` 与 `lastAt` 覆盖有贡献的用量样本、工具调用和已进入步骤。空日志提供 null 边界与空计数记录。
 
 ## 组合
 
@@ -25,7 +32,7 @@
 
 ## 模型体验
 
-无，因为插件只计算面向客户端的、由已写入日志的会话事件派生的读模型，不触碰任何提示词、消息、schema、流或工具结果。
+无，因为插件只计算面向客户端的、由已写入日志的会话事件派生的读模型，不改变任何提示词、消息、流或工具结果。
 
 #### KV Cache 影响
 
@@ -36,4 +43,5 @@
 - **步数统计的是已发生的工作，而非可见输出**——在产生任何可见内容前就失败的步仍以 `step/end` 关闭并计入；被崩溃打断的步在会话重新加载后计入，届时崩溃恢复为其补写合成的 `step/end`（dsh-session 的 `interruptedTurnClosers`）。
 - **被取消的步计数但不计时**——没有组装出 assistant 消息，其部分流式时间不进入任何墙钟数字，与窗口折叠的无计时 interrupted 节点一致；反之 max-tokens 的 usage 宿主消息贡献 surface 上看不到的模型时间。
 - **计数是日志口径，不是 surface 口径**——消息后来被压缩掉的步仍然计入；数字描述整个会话，而非当前模型可见 surface。
-- **仅挂载于 web-app bundle**——其他装配不提供 `sessionStats` 键，其消费者回退到窗口口径计数（Web 统计条的回退路径）。
+- **Host 本地用量日期**——回放使用 Host 时区；在不同时区间移动日志可能重新分配午夜附近事件的日期，但不会改变总量。
+- **仅挂载于 web-app bundle**——其他装配不提供这两个键；`sessionStats` 缺失时 Web 统计条回退到窗口口径计数。
