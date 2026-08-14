@@ -43,14 +43,18 @@ jobs:
 
       - name: Zip the app bundle
         run: |
+          ver="${GITHUB_REF_NAME#v}"
+          if [ "$ver" = "$GITHUB_REF_NAME" ]; then
+            ver="$(node -p "require('./native/electron/package.json').version")"
+          fi
           cd dist
-          zip -ry "DeepSeek-Harness-macos-arm64.zip" "DeepSeek Harness.app"
+          zip -ry "DeepSeek-Harness-${ver}-macos-arm64.zip" "DeepSeek Harness.app"
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: deepseek-harness-macos-arm64
-          path: dist/DeepSeek-Harness-macos-arm64.zip
+          path: dist/DeepSeek-Harness-*-macos-arm64.zip
           if-no-files-found: error
 
       - name: Resolve release tag
@@ -69,4 +73,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag_name }}
-          files: dist/DeepSeek-Harness-macos-arm64.zip
+          files: dist/DeepSeek-Harness-*-macos-arm64.zip
