@@ -27,13 +27,18 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "DeepSeek-Harness-windows-${arch}-setup.${ext}"
+    },
+    "portable": {
+      "artifactName": "DeepSeek-Harness-windows-${arch}-portable.${ext}"
     },
     "mac": {
       "target": ["dmg", "zip"]
     },
     "linux": {
-      "target": ["AppImage"]
+      "target": ["AppImage"],
+      "artifactName": "DeepSeek-Harness-linux-${arch}.${ext}"
     }
   }
 }
