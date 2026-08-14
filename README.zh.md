@@ -1,5 +1,7 @@
 # DeepSeek Harness
 
+[English](README.md) | 中文
+
 > **关于本仓库（Fork）**：这是官方 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的 fork，在官方项目基础上增加了**桌面应用打包**，把 DeepSeek Harness 的 Web UI 封装成 macOS / Windows / Linux 桌面应用，双击即用、无需命令行。
 >
 > - **下载安装包**：[Releases 页面](https://github.com/1m01m0/deepseek-harness-desktop/releases)（macOS zip、Windows exe、Linux AppImage）
@@ -46,8 +48,6 @@
 ## 原项目
 
 以下为原项目 README 内容。
-
-[English](README.md) | 中文
 
 DeepSeek Harness（`dsh`）是由 [DeepSeek AI](https://deepseek.com) 开发的开源 agent harness（智能体框架）。
 

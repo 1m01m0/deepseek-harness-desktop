@@ -1,20 +1,22 @@
 # DeepSeek Harness
 
-> **关于本仓库（Fork）**：这是官方 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的 fork，在官方项目基础上增加了**桌面应用打包**，把 DeepSeek Harness 的 Web UI 封装成 macOS / Windows / Linux 桌面应用，双击即用、无需命令行。
+English | [中文](README.zh.md)
+
+> **About this fork**: This is a fork of the official [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) that adds **desktop packaging** — wrapping the DeepSeek Harness web UI into macOS / Windows / Linux desktop apps that run with a double-click, no command line required.
 >
-> - **下载安装包**：[Releases 页面](https://github.com/1m01m0/deepseek-harness-desktop/releases)（macOS zip、Windows exe、Linux AppImage）
-> - **打包实现**：[`native/mac-app`](native/mac-app)（macOS，Swift 壳）｜[`native/electron`](native/electron)（Windows / Linux，Electron 壳）
-> - **自动更新**：`check-npm-updates` 工作流每天检测官方 `@deepseek-ai/dsh` 新版，自动重新打包并发布三平台安装包
+> - **Download installers**: [Releases page](https://github.com/1m01m0/deepseek-harness-desktop/releases) (macOS zip, Windows exe, Linux AppImage)
+> - **Packaging code**: [`native/mac-app`](native/mac-app) (macOS, Swift shell) | [`native/electron`](native/electron) (Windows / Linux, Electron shell)
+> - **Auto-updates**: the `check-npm-updates` workflow checks daily for new `@deepseek-ai/dsh` releases and automatically rebuilds and publishes installers for all three platforms
 
-## 安装
+## Installation
 
-从 [Releases 页面](https://github.com/1m01m0/deepseek-harness-desktop/releases) 下载对应平台的安装包。安装包按 `DeepSeek-Harness-<版本>-<平台>-<架构>[-<类型>]` 命名，例如 `DeepSeek-Harness-0.1.2-macos-arm64.zip`。
+Download the installer for your platform from the [Releases page](https://github.com/1m01m0/deepseek-harness-desktop/releases). Artifacts are named `DeepSeek-Harness-<version>-<platform>-<arch>[-<variant>]`, e.g. `DeepSeek-Harness-0.1.2-macos-arm64.zip`.
 
 ### macOS
 
-1. 下载 `DeepSeek-Harness-*-macos-arm64.zip`（Apple Silicon）
-2. 解压，把 `DeepSeek Harness.app` 拖入「应用程序」文件夹
-3. 首次打开若被 Gatekeeper 拦截，右键 App →「打开」，或执行：
+1. Download `DeepSeek-Harness-*-macos-arm64.zip` (Apple Silicon)
+2. Unzip and drag `DeepSeek Harness.app` into the Applications folder
+3. If Gatekeeper blocks the first launch, right-click the app → Open, or run:
 
    ```sh
    xattr -dr com.apple.quarantine "/Applications/DeepSeek Harness.app"
@@ -22,32 +24,30 @@
 
 ### Windows
 
-1. 下载安装器 `DeepSeek-Harness-*-windows-x64-setup.exe`（需安装）或便携版 `DeepSeek-Harness-*-windows-x64-portable.exe`（免安装）
-2. 安装器：双击运行，按提示安装；便携版：双击直接运行
-3. 首次运行若出现 SmartScreen 提示，点「更多信息」→「仍要运行」
+1. Download the installer `DeepSeek-Harness-*-windows-x64-setup.exe` (installs) or the portable `DeepSeek-Harness-*-windows-x64-portable.exe` (no install)
+2. Installer: double-click and follow the prompts; portable: just double-click to run
+3. If SmartScreen warns on first launch, click "More info" → "Run anyway"
 
 ### Linux
 
-1. 下载 `DeepSeek-Harness-*-linux-x64.AppImage`
-2. 赋予执行权限：
+1. Download `DeepSeek-Harness-*-linux-x64.AppImage`
+2. Make it executable:
 
    ```sh
    chmod +x DeepSeek-Harness-*.AppImage
    ```
 
-3. 运行：
+3. Run it:
 
    ```sh
    ./DeepSeek-Harness-*.AppImage
    ```
 
-首次启动后，在 App 内配置模型 API 密钥即可使用。
+Configure your model API key in the app on first launch.
 
-## 原项目
+## Original project
 
-以下为原项目 README 内容。
-
-English | [中文](README.zh.md)
+The following is the original project README.
 
 DeepSeek Harness (`dsh`) is an open-source agent harness developed by [DeepSeek AI](https://deepseek.com).
 
