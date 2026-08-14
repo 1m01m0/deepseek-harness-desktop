@@ -88,16 +88,25 @@ jobs:
           TAG: ${{ steps.tag.outputs.tag_name }}
         run: |
           set -euo pipefail
+          echo "::group::appcast debug"
           VER="$(echo "$TAG" | sed 's/^v//')"
-          test -f "dist/DeepSeek-Harness-$VER-macos-arm64.zip"
-          curl -fsSL -o /tmp/Sparkle.tar.xz "https://github.com/sparkle-project/Sparkle/releases/download/2.9.5/Sparkle-2.9.5.tar.xz"
-          tar -xf /tmp/Sparkle.tar.xz -C /tmp
+          test -f "dist/DeepSeek-Harness-$VER-macos-arm64.zip" && echo "zip ok"
+          curl -fsSL -o /tmp/Sparkle.tar.xz "https://github.com/sparkle-project/Sparkle/releases/download/2.9.5/Sparkle-2.9.5.tar.xz" && echo "curl ok"
+          tar -xf /tmp/Sparkle.tar.xz -C /tmp && echo "tar ok"
+          ls -l /tmp/bin/sign_update && echo "bin ok"
           echo "$SPARKLE_PRIVATE_KEY" > /tmp/sparkle_key
-          chmod 600 /tmp/sparkle_key
-          SIG="$(/tmp/bin/sign_update "dist/DeepSeek-Harness-$VER-macos-arm64.zip" /tmp/sparkle_key)"
+          chmod 600 /tmp/sparkle_key && echo "key ok"
+          set +e
+          SIG="$(/tmp/bin/sign_update "dist/DeepSeek-Harness-$VER-macos-arm64.zip" /tmp/sparkle_key 2>&1)"
+          SIGN_EXIT=$?
+          set -e
+          echo "sign exit=$SIGN_EXIT sig=[$SIG]"
+          [ -n "$SIG" ] || { echo "sign_update produced no output"; exit 1; }
           EDSIG="$(echo "$SIG" | sed 's/.*edSignature="//' | cut -d'"' -f1)"
           LEN="$(echo "$SIG" | sed 's/.*length="//' | cut -d'"' -f1)"
-          test -n "$EDSIG" && test -n "$LEN"
+          echo "edsig=[$EDSIG] len=[$LEN]"
+          [ -n "$EDSIG" ] && [ -n "$LEN" ] || { echo "signature parse failed"; exit 1; }
+          echo "::endgroup::"
           PUBDATE="$(date -u +'%a, %d %b %Y %H:%M:%S +0000')"
           URL="https://github.com/1m01m0/deepseek-harness-desktop/releases/download/$TAG/DeepSeek-Harness-$VER-macos-arm64.zip"
           {
