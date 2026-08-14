@@ -1,1 +1,15 @@
-# update feed placeholder
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>DeepSeek Harness</title>
+    <link>https://1m01m0.github.io/deepseek-harness-desktop/</link>
+    <description>DeepSeek Harness 桌面版自动更新清单</description>
+    <item>
+      <title>DeepSeek Harness 0.1.4</title>
+      <pubDate>Fri, 14 Aug 2026 07:00:00 +0000</pubDate>
+      <sparkle:version>0.1.4</sparkle:version>
+      <sparkle:shortVersionString>0.1.4</sparkle:shortVersionString>
+      <enclosure url="https://github.com/1m01m0/deepseek-harness-desktop/releases/download/v0.1.4/DeepSeek-Harness-0.1.4-macos-arm64.zip" sparkle:edSignature="k9w8EKpfcQ7OqCk4DtpPX6JkdeV0Pl/ctsFTijTvjodVi5/TxwLpQJLuZqPy+bxoTavfgCk5aMUu5xxL7evtBg==" length="126789453"/>
+    </item>
+  </channel>
+</rss>
