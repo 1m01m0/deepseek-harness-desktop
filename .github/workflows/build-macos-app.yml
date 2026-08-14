@@ -95,8 +95,8 @@ jobs:
           echo "$SPARKLE_PRIVATE_KEY" > /tmp/sparkle_key
           chmod 600 /tmp/sparkle_key
           SIG="$(/tmp/bin/sign_update "dist/DeepSeek-Harness-$VER-macos-arm64.zip" /tmp/sparkle_key)"
-          EDSIG="$(echo "$SIG" | sed -n 's/.*edSignature="//p' | sed -n 's/"//p' | sed -n 's/".*//p')"
-          LEN="$(echo "$SIG" | sed -n 's/.*length="//p' | sed -n 's/"//p' | sed -n 's/".*//p')"
+          EDSIG="$(echo "$SIG" | sed 's/.*edSignature="//' | cut -d'"' -f1)"
+          LEN="$(echo "$SIG" | sed 's/.*length="//' | cut -d'"' -f1)"
           test -n "$EDSIG" && test -n "$LEN"
           PUBDATE="$(date -u +'%a, %d %b %Y %H:%M:%S +0000')"
           URL="https://github.com/1m01m0/deepseek-harness-desktop/releases/download/$TAG/DeepSeek-Harness-$VER-macos-arm64.zip"
