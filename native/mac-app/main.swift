@@ -82,6 +82,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
             keyEquivalent: "q"
         ))
         appItem.submenu = appMenu
+
+        // WKWebView 通过 responder chain 处理编辑命令：菜单栏里必须有「编辑」
+        // 菜单把 ⌘Z/⌘X/⌘C/⌘V/⌘A 路由到 undo:/cut:/copy:/paste:/selectAll:，
+        // 否则键盘快捷键全部失效（只能靠网页自身的右键菜单）。
+        let editItem = NSMenuItem()
+        mainMenu.addItem(editItem)
+        let editMenu = NSMenu(title: "编辑")
+        editMenu.addItem(withTitle: "撤销", action: Selector(("undo:")), keyEquivalent: "z")
+        editMenu.addItem(withTitle: "重做", action: Selector(("redo:")), keyEquivalent: "Z")
+        editMenu.addItem(.separator())
+        editMenu.addItem(withTitle: "剪切", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        editMenu.addItem(withTitle: "复制", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        editMenu.addItem(withTitle: "粘贴", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        editMenu.addItem(.separator())
+        editMenu.addItem(withTitle: "全选", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        editItem.submenu = editMenu
+
         NSApp.mainMenu = mainMenu
     }
 
