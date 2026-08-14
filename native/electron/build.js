@@ -29,6 +29,10 @@ const nodePlatform = platform === 'win32' ? 'win' : platform
 const ext = platform === 'win32' ? 'zip' : 'tar.gz'
 const targetFlag = { win32: '--win', darwin: '--mac', linux: '--linux' }[platform]
 
+// On Windows, npm/npx are .cmd shims; spawn needs the explicit extension.
+const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm'
+const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx'
+
 if (!targetFlag) {
   console.error(`unsupported platform: ${platform}`)
   process.exit(1)
@@ -123,7 +127,7 @@ async function main() {
 
   // 2. npm install the dsh runtime
   const dshDir = path.join(STAGING, 'dsh')
-  run('npm', ['install', '--prefix', dshDir, '--no-audit', '--no-fund', `@deepseek-ai/dsh@${DSH_VERSION}`])
+  run(npmCmd, ['install', '--prefix', dshDir, '--no-audit', '--no-fund', `@deepseek-ai/dsh@${DSH_VERSION}`])
   const dshBin = path.join(dshDir, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
   if (!fs.existsSync(dshBin)) throw new Error('dsh bin missing after install')
 
@@ -131,7 +135,7 @@ async function main() {
   await validate(nodeSrcBin, dshBin)
 
   // 4. package
-  run('npx', ['electron-builder', targetFlag], { cwd: DIR })
+  run(npxCmd, ['electron-builder', targetFlag], { cwd: DIR })
 
   console.log(`done: see ${path.join(DIR, 'dist')}`)
 }
