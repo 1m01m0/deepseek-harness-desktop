@@ -40,7 +40,12 @@ if (!targetFlag) {
 
 function run(cmd, args, opts = {}) {
   console.log(`+ ${cmd} ${args.join(' ')}`)
-  const r = spawnSync(cmd, args, { stdio: 'inherit', ...opts })
+  const r = spawnSync(cmd, args, {
+    stdio: 'inherit',
+    // .cmd/.bat shims (npm, npx) are not PE executables; Windows needs a shell.
+    shell: process.platform === 'win32',
+    ...opts,
+  })
   if (r.status !== 0) {
     console.error(`command failed: ${cmd}`)
     process.exit(r.status ?? 1)
