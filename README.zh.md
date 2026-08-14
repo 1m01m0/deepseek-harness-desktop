@@ -5,8 +5,47 @@
 > - **下载安装包**：[Releases 页面](https://github.com/1m01m0/deepseek-harness-desktop/releases)（macOS zip、Windows exe、Linux AppImage）
 > - **打包实现**：[`native/mac-app`](native/mac-app)（macOS，Swift 壳）｜[`native/electron`](native/electron)（Windows / Linux，Electron 壳）
 > - **自动更新**：`check-npm-updates` 工作流每天检测官方 `@deepseek-ai/dsh` 新版，自动重新打包并发布三平台安装包
->
-> 以下为原项目 README 内容。
+
+## 安装
+
+从 [Releases 页面](https://github.com/1m01m0/deepseek-harness-desktop/releases) 下载对应平台的安装包。
+
+### macOS
+
+1. 下载 `DeepSeek-Harness-macos-arm64.zip`（Apple Silicon）
+2. 解压，把 `DeepSeek Harness.app` 拖入「应用程序」文件夹
+3. 首次打开若被 Gatekeeper 拦截，右键 App →「打开」，或执行：
+
+   ```sh
+   xattr -dr com.apple.quarantine "/Applications/DeepSeek Harness.app"
+   ```
+
+### Windows
+
+1. 下载安装器 `DeepSeek-Harness-windows-x64-setup.exe`（需安装）或便携版 `DeepSeek-Harness-windows-x64-portable.exe`（免安装）
+2. 安装器：双击运行，按提示安装；便携版：双击直接运行
+3. 首次运行若出现 SmartScreen 提示，点「更多信息」→「仍要运行」
+
+### Linux
+
+1. 下载 `DeepSeek-Harness-linux-x86_64.AppImage`
+2. 赋予执行权限：
+
+   ```sh
+   chmod +x DeepSeek-Harness-linux-x86_64.AppImage
+   ```
+
+3. 运行：
+
+   ```sh
+   ./DeepSeek-Harness-linux-x86_64.AppImage
+   ```
+
+首次启动后，在 App 内配置模型 API 密钥即可使用。
+
+## 原项目
+
+以下为原项目 README 内容。
 
 [English](README.md) | 中文
 
