@@ -1,0 +1,69 @@
+# Build the Linux Electron desktop app (native/electron) and attach the
+# AppImage to a GitHub Release.
+#
+# Triggers:
+#   - v* tag push: build + attach to the tag's release
+#   - workflow_dispatch: build + artifact; with `dsh_version` set, also create
+#     the `v<version>` release (used by check-npm-updates)
+name: build-linux-app
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      dsh_version:
+        description: 'dsh npm version to package (defaults to native/mac-app/DSH_VERSION)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Linux app
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install electron + electron-builder
+        working-directory: native/electron
+        run: npm install
+
+      - name: Build the app
+        working-directory: native/electron
+        env:
+          DSH_VERSION: ${{ github.event.inputs.dsh_version }}
+          DSH_TARGET_PLATFORM: linux
+        run: node build.js
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: deepseek-harness-linux
+          path: native/electron/dist/*.AppImage
+          if-no-files-found: error
+
+      - name: Resolve release tag
+        id: tag
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "tag_name=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          elif [ -n "${{ github.event.inputs.dsh_version }}" ]; then
+            echo "tag_name=v${{ github.event.inputs.dsh_version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag_name=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Attach to GitHub Release
+        if: steps.tag.outputs.tag_name != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag_name }}
+          files: native/electron/dist/*.AppImage

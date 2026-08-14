@@ -26,14 +26,20 @@ DSH_TARGET_PLATFORM=win32 node build.js   # 显式指定目标平台
 
 ## 自动构建（GitHub Actions）
 
-[`.github/workflows/build-windows-app.yml`](../../.github/workflows/build-windows-app.yml) 在 **tag（`v*`）推送**时于 Windows runner 上构建并把 `*.exe` 挂到 Release；`check-npm-updates` 定时任务检测到新版本时也会触发它。
+三个平台各有独立的 CI 工作流，在 **tag（`v*`）推送**时于对应 runner 上构建并把安装包挂到 Release：
+
+- [`.github/workflows/build-windows-app.yml`](../../.github/workflows/build-windows-app.yml) — Windows（NSIS + portable）
+- [`.github/workflows/build-linux-app.yml`](../../.github/workflows/build-linux-app.yml) — Linux（AppImage）
+- [`.github/workflows/build-macos-app.yml`](../../.github/workflows/build-macos-app.yml) — macOS（zip）
+
+`check-npm-updates` 定时任务检测到新版本时会同时触发以上三者。
 
 ## 行为
 
 与 macOS 壳一致：
 
 - 服务器随 App 启动/退出；端口 `--port 0` 由系统分配；就绪信号为 stdout 的 `dsh web: http://127.0.0.1:<port>`。
-- 数据目录：`%APPDATA%\DeepSeek Harness\dsh`（Windows）／`~/Library/Application Support/DeepSeek Harness/dsh`（macOS），与终端版隔离。
+- 数据目录：`%APPDATA%\DeepSeek Harness\dsh`（Windows）／`~/Library/Application Support/DeepSeek Harness/dsh`（macOS）／`~/.config/DeepSeek Harness/dsh`（Linux），与终端版隔离。
 - 退出时向服务器发 SIGTERM（POSIX 优雅退出；Windows 上为终止进程）。
 
 ## 备注

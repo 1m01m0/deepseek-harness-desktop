@@ -43,11 +43,13 @@ jobs:
     if: needs.check.outputs.has_update == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger build-macos-app
+      - name: Trigger macOS / Windows / Linux builds
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh workflow run build-macos-app.yml \
-            -R "${{ github.repository }}" \
-            -f dsh_version="${{ needs.check.outputs.latest }}"
-          echo "triggered build-macos-app for dsh ${{ needs.check.outputs.latest }}"
+          for wf in build-macos-app build-windows-app build-linux-app; do
+            gh workflow run "$wf.yml" \
+              -R "${{ github.repository }}" \
+              -f dsh_version="${{ needs.check.outputs.latest }}"
+          done
+          echo "triggered all three platform builds for dsh ${{ needs.check.outputs.latest }}"
