@@ -1,16 +1,25 @@
 import AppKit
 import WebKit
 import Darwin
+import Sparkle
 
 final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
     private var window: NSWindow!
     private var webView: WKWebView!
     private var serverTask: Process?
     private var readyPort: Int?
+    private var updater: SPUStandardUpdaterController!
 
     // MARK: - App lifecycle
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Sparkle 自动检查更新（SUFeedURL/SUPublicEDKey 在 Info.plist）；
+        // 菜单栏「检查更新…」提供手动检查。
+        updater = SPUStandardUpdaterController(
+            startingUpdater: true,
+            updaterDelegate: nil,
+            userDriverDelegate: nil
+        )
         buildMenu()
         makeWindow()
         NSApp.activate(ignoringOtherApps: true)
@@ -76,6 +85,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
             keyEquivalent: ""
         ))
         appMenu.addItem(.separator())
+        let checkUpdateItem = NSMenuItem(
+            title: "检查更新…",
+            action: #selector(AppDelegate.checkForUpdates(_:)),
+            keyEquivalent: ""
+        )
+        checkUpdateItem.target = self
+        appMenu.addItem(checkUpdateItem)
+        appMenu.addItem(.separator())
         appMenu.addItem(NSMenuItem(
             title: "退出 DeepSeek Harness",
             action: #selector(NSApplication.terminate(_:)),
@@ -100,6 +117,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate {
         editItem.submenu = editMenu
 
         NSApp.mainMenu = mainMenu
+    }
+
+    @objc private func checkForUpdates(_ sender: Any?) {
+        updater.checkForUpdates(sender)
     }
 
     // MARK: - Server lifecycle

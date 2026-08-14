@@ -36,11 +36,12 @@ jobs:
         working-directory: native/electron
         run: npm install
 
-      - name: Build the app
+      - name: Build and publish the app
         working-directory: native/electron
         env:
           DSH_VERSION: ${{ github.event.inputs.dsh_version }}
           DSH_TARGET_PLATFORM: win32
+          GH_TOKEN: ${{ github.token }}
         run: node build.js
 
       - name: Upload build artifacts
@@ -62,9 +63,5 @@ jobs:
             echo "tag_name=" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Attach to GitHub Release
-        if: steps.tag.outputs.tag_name != ''
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.tag.outputs.tag_name }}
-          files: native/electron/dist/*.exe
+      # electron-builder --publish always (run in CI, see build.js) uploads the
+      # NSIS/portable exes plus the latest.yml update feed used by electron-updater.

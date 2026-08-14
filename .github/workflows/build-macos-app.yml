@@ -77,3 +77,49 @@ jobs:
         with:
           tag_name: ${{ steps.tag.outputs.tag_name }}
           files: dist/DeepSeek-Harness-*-macos-arm64.zip
+
+      # Sparkle feed: sign the macOS zip with the EdDSA private key and push
+      # appcast.xml to the gh-pages branch (published at
+      # https://1m01m0.github.io/deepseek-harness-desktop/appcast.xml).
+      - name: Publish Sparkle appcast
+        if: steps.tag.outputs.tag_name != ''
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+          TAG: ${{ steps.tag.outputs.tag_name }}
+        run: |
+          set -euo pipefail
+          VER="$(echo "$TAG" | sed 's/^v//')"
+          test -f "dist/DeepSeek-Harness-$VER-macos-arm64.zip"
+          curl -fsSL -o /tmp/Sparkle.tar.xz "https://github.com/sparkle-project/Sparkle/releases/download/2.9.5/Sparkle-2.9.5.tar.xz"
+          tar -xf /tmp/Sparkle.tar.xz -C /tmp
+          echo "$SPARKLE_PRIVATE_KEY" > /tmp/sparkle_key
+          chmod 600 /tmp/sparkle_key
+          SIG="$(/tmp/bin/sign_update "dist/DeepSeek-Harness-$VER-macos-arm64.zip" /tmp/sparkle_key)"
+          EDSIG="$(echo "$SIG" | sed -n 's/.*edSignature="//p' | sed -n 's/"//p' | sed -n 's/".*//p')"
+          LEN="$(echo "$SIG" | sed -n 's/.*length="//p' | sed -n 's/"//p' | sed -n 's/".*//p')"
+          test -n "$EDSIG" && test -n "$LEN"
+          PUBDATE="$(date -u +'%a, %d %b %Y %H:%M:%S +0000')"
+          URL="https://github.com/1m01m0/deepseek-harness-desktop/releases/download/$TAG/DeepSeek-Harness-$VER-macos-arm64.zip"
+          {
+            echo '<?xml version="1.0" encoding="utf-8"?>'
+            echo '<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">'
+            echo '  <channel>'
+            echo '    <title>DeepSeek Harness</title>'
+            echo '    <link>https://1m01m0.github.io/deepseek-harness-desktop/</link>'
+            echo '    <description>DeepSeek Harness 桌面版自动更新清单</description>'
+            echo '    <item>'
+            echo "      <title>DeepSeek Harness $VER</title>"
+            echo "      <pubDate>$PUBDATE</pubDate>"
+            echo "      <sparkle:version>$VER</sparkle:version>"
+            echo "      <sparkle:shortVersionString>$VER</sparkle:shortVersionString>"
+            echo "      <enclosure url=\"$URL\" sparkle:edSignature=\"$EDSIG\" length=\"$LEN\"/>"
+            echo '    </item>'
+            echo '  </channel>'
+            echo '</rss>'
+          } > /tmp/appcast.xml
+          git fetch origin gh-pages --depth 1
+          git checkout gh-pages
+          cp /tmp/appcast.xml appcast.xml
+          git add appcast.xml
+          git -c user.name="github-actions" -c user.email="actions@github.com" commit -m "appcast: $TAG" || true
+          git push origin gh-pages

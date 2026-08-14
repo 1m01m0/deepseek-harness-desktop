@@ -48,7 +48,14 @@ npm install --prefix "$STAGING/dsh" --no-audit --no-fund "@deepseek-ai/dsh@$DSH_
 DSH_BIN="$STAGING/dsh/node_modules/@deepseek-ai/dsh/lib/bin.js"
 test -f "$DSH_BIN" || { echo "dsh bin missing after install"; exit 1; }
 
-echo "==> 3/7 Validate the runtime boots the web profile"
+echo "==> 3/7 Stage Sparkle framework"
+SPARKLE_VERSION="$(printenv SPARKLE_VERSION || true)"
+[ -n "$SPARKLE_VERSION" ] || SPARKLE_VERSION=2.9.5
+curl -fsSL -o "$STAGING/Sparkle.tar.xz"   "https://github.com/sparkle-project/Sparkle/releases/download/$SPARKLE_VERSION/Sparkle-$SPARKLE_VERSION.tar.xz"
+tar -xf "$STAGING/Sparkle.tar.xz" -C "$STAGING"
+test -d "$STAGING/Sparkle.framework" || { echo "Sparkle framework missing"; exit 1; }
+
+echo "==> 4/7 Validate the runtime boots the web profile"
 VAL_HOME="$(mktemp -d)"
 VAL_LOG="$STAGING/validate.log"
 DSH_HOME="$VAL_HOME" DSH_TELEMETRY_DISABLED=1 \
@@ -72,16 +79,31 @@ kill -TERM "$VAL_PID" 2>/dev/null || true
 wait "$VAL_PID" 2>/dev/null || true
 rm -rf "$VAL_HOME"
 
-echo "==> 4/7 Compile the Swift shell"
+echo "==> 5/7 Compile the Swift shell"
 swiftc -O "$MAC_DIR/main.swift" \
+  -F "$STAGING" -framework Sparkle \
   -framework AppKit -framework WebKit \
+  -Xlinker -rpath -Xlinker "@executable_path/../Frameworks" \
   -o "$APP_DIR/Contents/MacOS/$APP_NAME"
 
-echo "==> 5/7 Assemble bundle"
+echo "==> 6/7 Assemble bundle"
 cp "$MAC_DIR/Info.plist" "$APP_DIR/Contents/Info.plist"
 cp -R "$STAGING/dsh/node_modules" "$APP_DIR/Contents/Resources/dsh/node_modules"
+mkdir -p "$APP_DIR/Contents/Frameworks"
+cp -R "$STAGING/Sparkle.framework" "$APP_DIR/Contents/Frameworks/"
 
-echo "==> 6/7 Icon (best effort)"
+# Release version: tag (GITHUB_REF_NAME=v0.1.4 -> 0.1.4) wins, else DSH_VERSION.
+# Sparkle compares CFBundleShortVersionString to decide whether an update applies.
+APP_VERSION=""
+if [ -n "$(printenv GITHUB_REF_NAME || true)" ]; then
+  APP_VERSION="$(echo "$GITHUB_REF_NAME" | sed 's/^v//')"
+fi
+[ -n "$APP_VERSION" ] || APP_VERSION="$(echo "$DSH_VERSION" | sed 's/^v//')"
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $APP_VERSION" "$APP_DIR/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $APP_VERSION" "$APP_DIR/Contents/Info.plist"
+echo "    app version: $APP_VERSION"
+
+echo "==> 7/7 Icon (best effort)"
 # Prefer $ICON_SRC (env), then native/mac-app/app-icon.svg, then the favicon.
 ICON_SRC="${ICON_SRC:-}"
 if [ -z "$ICON_SRC" ] || [ ! -f "$ICON_SRC" ]; then
@@ -135,7 +157,9 @@ PY
   fi
 fi
 
-echo "==> 7/7 Sign (ad-hoc)"
+echo "==> 8/7 Sign (ad-hoc)"
+# Sign nested Sparkle content first (framework + its XPC services), then the app.
+codesign --force --deep --sign - "$APP_DIR/Contents/Frameworks/Sparkle.framework"
 codesign --force --sign - "$APP_DIR"
 
 rm -rf "$STAGING"
