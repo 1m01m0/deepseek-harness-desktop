@@ -1,0 +1,53 @@
+# Check npm for a newer @deepseek-ai/dsh release and, when one exists, trigger
+# build-macos-app (with the new version) so a fresh installer lands in a
+# `v<version>` release. Runs daily and on demand.
+name: check-npm-updates
+
+on:
+  schedule:
+    - cron: '17 9 * * *'   # daily 09:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  check:
+    name: Check for npm update
+    runs-on: ubuntu-latest
+    outputs:
+      latest: ${{ steps.check.outputs.latest }}
+      has_update: ${{ steps.check.outputs.has_update }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: check
+        name: Compare npm latest vs pinned version
+        run: |
+          latest="$(curl -fsSL https://registry.npmjs.org/@deepseek-ai/dsh/latest | jq -r .version)"
+          pinned="$(cat native/mac-app/DSH_VERSION)"
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          echo "pinned=$pinned"
+          if [ "$latest" = "$pinned" ]; then
+            echo "has_update=false" >> "$GITHUB_OUTPUT"
+            echo "up to date ($latest)"
+          else
+            echo "has_update=true" >> "$GITHUB_OUTPUT"
+            echo "update available: $pinned -> $latest"
+          fi
+
+  trigger-build:
+    name: Trigger build
+    needs: check
+    if: needs.check.outputs.has_update == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger build-macos-app
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run build-macos-app.yml \
+            -R "${{ github.repository }}" \
+            -f dsh_version="${{ needs.check.outputs.latest }}"
+          echo "triggered build-macos-app for dsh ${{ needs.check.outputs.latest }}"

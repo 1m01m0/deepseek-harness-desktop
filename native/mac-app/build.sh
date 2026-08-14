@@ -15,7 +15,9 @@ APP_NAME="DeepSeek Harness"
 APP_DIR="$DIST/$APP_NAME.app"
 
 NODE_MAJOR="${NODE_MAJOR:-24}"
-DSH_VERSION="${DSH_VERSION:-0.1.0-rc.6}"
+# Single source of truth for the packaged dsh version: native/mac-app/DSH_VERSION.
+# The DSH_VERSION env var (e.g. set by CI) still overrides it.
+DSH_VERSION="${DSH_VERSION:-$(cat "$MAC_DIR/DSH_VERSION" 2>/dev/null || echo 0.1.0-rc.6)}"
 
 case "$(uname -m)" in
   arm64)  NODE_ARCH="arm64" ;;

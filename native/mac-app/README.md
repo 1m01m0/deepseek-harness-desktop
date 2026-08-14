@@ -24,7 +24,7 @@ open "dist/DeepSeek Harness.app"
 | 环境变量 | 默认 | 说明 |
 |---|---|---|
 | `NODE_MAJOR` | `24` | 内置 Node 大版本（LTS） |
-| `DSH_VERSION` | `0.1.0-rc.6` | 打包的 `@deepseek-ai/dsh` npm 版本 |
+| `DSH_VERSION` | `native/mac-app/DSH_VERSION` 文件 | 打包的 `@deepseek-ai/dsh` npm 版本（环境变量可覆盖） |
 | `ICON_SRC` | `native/mac-app/app-icon.svg` | App 图标 SVG 源文件（可用环境变量覆盖） |
 
 例如 `DSH_VERSION=0.1.0-rc.5 bash native/mac-app/build.sh`。
@@ -41,6 +41,8 @@ open "dist/DeepSeek Harness.app"
 ## 自动构建（GitHub Actions）
 
 仓库内的 [`.github/workflows/build-macos-app.yml`](../../.github/workflows/build-macos-app.yml) 会在 **tag（`v*`）推送**时自动在 macOS runner 上构建并把 `DeepSeek Harness-macos-arm64.zip` 挂到对应 Release；也支持 `workflow_dispatch` 手动触发（仅构建 + 上传 artifact，不发布）。
+
+[`.github/workflows/check-npm-updates.yml`](../../.github/workflows/check-npm-updates.yml) 每天检查一次 `@deepseek-ai/dsh` 在 npm 的最新版本，若高于 `DSH_VERSION` 文件里记录的版本，就自动触发 `build-macos-app`（传入新版本），生成新的 `v<version>` Release 安装包。
 
 ## 备注
 

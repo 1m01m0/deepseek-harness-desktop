@@ -1,6 +1,10 @@
 # Build the self-contained macOS desktop app (native/mac-app) and attach the
-# .zip installer to the release of the pushed tag. Triggered by v* tags and
-# manually via workflow_dispatch (build + artifact only, no release).
+# .zip installer to a GitHub Release.
+#
+# Triggers:
+#   - v* tag push: build + zip + attach to the tag's release
+#   - workflow_dispatch: build + zip + artifact; when `dsh_version` is set
+#     (used by the check-npm-updates cron), also create the `v<version>` release
 name: build-macos-app
 
 on:
@@ -8,6 +12,11 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      dsh_version:
+        description: 'dsh npm version to package (defaults to native/mac-app/DSH_VERSION)'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -28,6 +37,8 @@ jobs:
         run: pip install Pillow
 
       - name: Build the app
+        env:
+          DSH_VERSION: ${{ github.event.inputs.dsh_version }}
         run: bash native/mac-app/build.sh
 
       - name: Zip the app bundle
@@ -42,8 +53,20 @@ jobs:
           path: dist/DeepSeek Harness-macos-arm64.zip
           if-no-files-found: error
 
+      - name: Resolve release tag
+        id: tag
+        run: |
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "tag_name=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          elif [ -n "${{ github.event.inputs.dsh_version }}" ]; then
+            echo "tag_name=v${{ github.event.inputs.dsh_version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag_name=" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Attach to GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: steps.tag.outputs.tag_name != ''
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.tag.outputs.tag_name }}
           files: dist/DeepSeek Harness-macos-arm64.zip
