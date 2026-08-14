@@ -1,0 +1,39 @@
+{
+  "name": "deepseek-harness-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DeepSeek Harness desktop shell (Electron) — boots the bundled dsh web server",
+  "author": "DeepSeek Harness",
+  "main": "main.js",
+  "scripts": {
+    "build": "node build.js"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "ai.deepseek.harness",
+    "productName": "DeepSeek Harness",
+    "files": [
+      "main.js"
+    ],
+    "extraResources": [
+      { "from": ".staging/runtime", "to": "runtime" },
+      { "from": ".staging/dsh/node_modules", "to": "dsh/node_modules" }
+    ],
+    "win": {
+      "target": ["nsis", "portable"]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "mac": {
+      "target": ["dmg", "zip"]
+    },
+    "linux": {
+      "target": ["AppImage"]
+    }
+  }
+}

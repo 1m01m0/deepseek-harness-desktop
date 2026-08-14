@@ -33,6 +33,9 @@ python/**/.pytest_cache/
 apps/web/dist/
 dist/
 native/mac-app/.staging/
+native/electron/.staging/
+native/electron/dist/
+native/electron/node_modules/
 .artifacts/
 .playwright-mcp/
 .orig
