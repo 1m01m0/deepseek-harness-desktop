@@ -97,7 +97,7 @@ jobs:
           echo "$SPARKLE_PRIVATE_KEY" > /tmp/sparkle_key
           chmod 600 /tmp/sparkle_key && echo "key ok"
           set +e
-          SIG="$(/tmp/bin/sign_update "dist/DeepSeek-Harness-$VER-macos-arm64.zip" /tmp/sparkle_key 2>&1)"
+          SIG="$(/tmp/bin/sign_update --ed-key-file /tmp/sparkle_key "dist/DeepSeek-Harness-$VER-macos-arm64.zip" 2>&1)"
           SIGN_EXIT=$?
           set -e
           echo "sign exit=$SIGN_EXIT sig=[$SIG]"
