@@ -1,0 +1,49 @@
+# Build the self-contained macOS desktop app (native/mac-app) and attach the
+# .zip installer to the release of the pushed tag. Triggered by v* tags and
+# manually via workflow_dispatch (build + artifact only, no release).
+name: build-macos-app
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build macOS app
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python for icon padding
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Pillow
+        run: pip install Pillow
+
+      - name: Build the app
+        run: bash native/mac-app/build.sh
+
+      - name: Zip the app bundle
+        run: |
+          cd dist
+          zip -ry "DeepSeek Harness-macos-arm64.zip" "DeepSeek Harness.app"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deepseek-harness-macos-arm64
+          path: dist/DeepSeek Harness-macos-arm64.zip
+          if-no-files-found: error
+
+      - name: Attach to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/DeepSeek Harness-macos-arm64.zip
