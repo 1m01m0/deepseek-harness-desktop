@@ -45,6 +45,12 @@
 
 首次启动后，在 App 内配置模型 API 密钥即可使用。
 
+## 自动更新
+
+- **macOS / Windows（安装版）**：应用内置自动更新。启动时自动检查新版本，也可通过菜单「检查更新…」手动检查；新版下载完成后按提示重启即完成更新。
+- **Windows 便携版**：便携版无法自动更新，请从 [Releases 页面](https://github.com/1m01m0/deepseek-harness-desktop/releases) 下载新版安装包。
+- **Linux AppImage**：自动安装暂不支持，菜单「检查更新…」会检查新版并打开下载页面。
+
 ## 原项目
 
 以下为原项目 README 内容。

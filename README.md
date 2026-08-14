@@ -45,6 +45,12 @@ Download the installer for your platform from the [Releases page](https://github
 
 Configure your model API key in the app on first launch.
 
+## Automatic updates
+
+- **macOS / Windows (installer)**: the app checks for updates automatically at startup and via the “检查更新…” (“Check for Updates…”) menu item; once a new version is downloaded, restart to apply it.
+- **Windows portable**: the portable build cannot update itself; download the new installer from the [Releases page](https://github.com/1m01m0/deepseek-harness-desktop/releases).
+- **Linux AppImage**: automatic installation is not supported yet; “Check for Updates…” opens the download page when a new release exists.
+
 ## Original project
 
 The following is the original project README.
