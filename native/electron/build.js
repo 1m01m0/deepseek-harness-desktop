@@ -103,15 +103,19 @@ async function main() {
   fs.rmSync(STAGING, { recursive: true, force: true })
   fs.mkdirSync(STAGING, { recursive: true })
 
-  // Tag-triggered builds name artifacts with the tag version (v0.1.2 -> 0.1.2);
-  // sync it into package.json so electron-builder's ${version} resolves.
+  // Artifact version: tag (v0.1.2 -> 0.1.2) wins, then dsh_version (auto
+  // releases), else package.json stays as-is. Synced into package.json so
+  // electron-builder's ${version} resolves.
   const refName = process.env.GITHUB_REF_NAME
-  if (refName && refName.startsWith('v')) {
+  const appVersion = (refName && refName.startsWith('v'))
+    ? refName.slice(1)
+    : (process.env.DSH_VERSION || null)
+  if (appVersion) {
     const pkgPath = path.join(DIR, 'package.json')
     const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'))
-    pkg.version = refName.slice(1)
+    pkg.version = appVersion
     fs.writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`)
-    console.log(`app version -> ${pkg.version} (from ${refName})`)
+    console.log(`app version -> ${appVersion}`)
   }
 
   console.log(`target: ${platform}-${arch}, dsh ${DSH_VERSION}, node ${NODE_MAJOR}.x`)

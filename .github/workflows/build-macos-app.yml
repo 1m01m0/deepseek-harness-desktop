@@ -45,7 +45,10 @@ jobs:
         run: |
           ver="${GITHUB_REF_NAME#v}"
           if [ "$ver" = "$GITHUB_REF_NAME" ]; then
-            ver="$(node -p "require('./native/electron/package.json').version")"
+            ver="${{ github.event.inputs.dsh_version }}"
+            if [ -z "$ver" ]; then
+              ver="$(node -p "require('./native/electron/package.json').version")"
+            fi
           fi
           cd dist
           zip -ry "DeepSeek-Harness-${ver}-macos-arm64.zip" "DeepSeek Harness.app"
