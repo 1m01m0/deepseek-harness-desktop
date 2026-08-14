@@ -5,11 +5,11 @@
     <link>https://1m01m0.github.io/deepseek-harness-desktop/</link>
     <description>DeepSeek Harness 桌面版自动更新清单</description>
     <item>
-      <title>DeepSeek Harness 0.1.4</title>
-      <pubDate>Fri, 14 Aug 2026 07:00:00 +0000</pubDate>
-      <sparkle:version>0.1.4</sparkle:version>
-      <sparkle:shortVersionString>0.1.4</sparkle:shortVersionString>
-      <enclosure url="https://github.com/1m01m0/deepseek-harness-desktop/releases/download/v0.1.4/DeepSeek-Harness-0.1.4-macos-arm64.zip" sparkle:edSignature="k9w8EKpfcQ7OqCk4DtpPX6JkdeV0Pl/ctsFTijTvjodVi5/TxwLpQJLuZqPy+bxoTavfgCk5aMUu5xxL7evtBg==" length="126789453"/>
+      <title>DeepSeek Harness 0.1.6</title>
+      <pubDate>Fri, 14 Aug 2026 07:31:57 +0000</pubDate>
+      <sparkle:version>0.1.6</sparkle:version>
+      <sparkle:shortVersionString>0.1.6</sparkle:shortVersionString>
+      <enclosure url="https://github.com/1m01m0/deepseek-harness-desktop/releases/download/v0.1.6/DeepSeek-Harness-0.1.6-macos-arm64.zip" sparkle:edSignature="ERROR! Signing key not found for account ed25519. Please run generate_keys tool first or provide key with --ed-key-file <private_key_file>" length="ERROR! Signing key not found for account ed25519. Please run generate_keys tool first or provide key with --ed-key-file <private_key_file>"/>
     </item>
   </channel>
 </rss>
