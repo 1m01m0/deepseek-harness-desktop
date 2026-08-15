@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   actions: write
 
 jobs:
@@ -20,7 +20,7 @@ jobs:
       latest: ${{ steps.check.outputs.latest }}
       has_update: ${{ steps.check.outputs.has_update }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
 
       - id: check
         name: Compare npm latest vs pinned version
@@ -38,11 +38,28 @@ jobs:
           fi
 
   trigger-build:
-    name: Trigger build
+    name: Bump pin and trigger builds
     needs: check
     if: needs.check.outputs.has_update == 'true'
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Bump DSH_VERSION pin
+        env:
+          NEXT_VERSION: ${{ needs.check.outputs.latest }}
+        run: |
+          # Close the loop: without this commit the daily check keeps seeing a
+          # mismatch and re-triggers the same builds forever. Trade-off: if a
+          # build below fails after this commit, re-trigger it manually.
+          printf '%s\n' "$NEXT_VERSION" > native/mac-app/DSH_VERSION
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add native/mac-app/DSH_VERSION
+          git commit -m "chore: bump DSH_VERSION to $NEXT_VERSION" || echo "pin already at $NEXT_VERSION"
+          git pull --rebase origin master || echo "rebase failed; push below will fail loudly"
+          git push origin master
+
       - name: Trigger macOS / Windows / Linux builds
         env:
           GH_TOKEN: ${{ github.token }}

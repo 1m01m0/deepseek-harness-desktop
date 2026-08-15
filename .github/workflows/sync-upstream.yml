@@ -1,0 +1,36 @@
+# Daily: merge upstream deepseek-ai/deepseek-harness master into the fork's
+# master so the repo tracks the source. Packaging is npm-driven and unaffected
+# by this sync; on conflict the job fails loudly for manual resolution (the
+# fork never force-pushes, so a failed sync leaves master untouched).
+name: sync-upstream
+
+on:
+  schedule:
+    - cron: '0 8 * * *'   # daily 08:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    name: Merge upstream master
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Merge upstream/master
+        run: |
+          git remote add upstream https://github.com/deepseek-ai/deepseek-harness.git
+          git fetch upstream master
+          if git merge-base --is-ancestor upstream/master HEAD; then
+            echo "already up to date with upstream/master"
+            exit 0
+          fi
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git merge --no-edit upstream/master
+          git push origin master
+          echo "merged upstream/master and pushed"
