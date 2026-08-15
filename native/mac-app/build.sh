@@ -92,13 +92,12 @@ cp -R "$STAGING/dsh/node_modules" "$APP_DIR/Contents/Resources/dsh/node_modules"
 mkdir -p "$APP_DIR/Contents/Frameworks"
 cp -R "$STAGING/Sparkle.framework" "$APP_DIR/Contents/Frameworks/"
 
-# Release version: tag (GITHUB_REF_NAME=v0.1.4 -> 0.1.4) wins, else DSH_VERSION.
-# Sparkle compares CFBundleShortVersionString to decide whether an update applies.
-APP_VERSION=""
-if [ -n "$(printenv GITHUB_REF_NAME || true)" ]; then
-  APP_VERSION="$(echo "$GITHUB_REF_NAME" | sed 's/^v//')"
-fi
-[ -n "$APP_VERSION" ] || APP_VERSION="$(echo "$DSH_VERSION" | sed 's/^v//')"
+# The app version IS the packaged dsh runtime version (DSH_VERSION): Sparkle
+# and electron-updater compare this string, so it must move only when the
+# runtime moves. A fork release tag (v0.1.x) only identifies a packaging build;
+# using it here would make auto-updaters skip or even downgrade runtime updates
+# (e.g. 0.1.7 > 0.1.0-rc.7 while shipping an older runtime).
+APP_VERSION="$(echo "$DSH_VERSION" | tr -d '[:space:]' | sed 's/^v//')"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $APP_VERSION" "$APP_DIR/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $APP_VERSION" "$APP_DIR/Contents/Info.plist"
 echo "    app version: $APP_VERSION"

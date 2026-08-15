@@ -51,6 +51,8 @@ Configure your model API key in the app on first launch.
 - **Windows portable**: the portable build cannot update itself; download the new installer from the [Releases page](https://github.com/1m01m0/deepseek-harness-desktop/releases).
 - **Linux AppImage**: automatic installation is not supported yet; “Check for Updates…” opens the download page when a new release exists.
 
+> **About version numbers**: the app's version is the version of the packaged dsh runtime (e.g. `0.1.0-rc.6`); a Release tag (`v0.1.x`) only identifies a packaging build and never triggers an update by itself. Users of `v0.1.7` or earlier installers need **one manual download** of the latest installer to switch over (their old version number `0.1.7` is higher than the new `0.1.0-rc.x` scheme); automatic updates work normally afterwards.
+
 ## Original project
 
 The following is the original project README.

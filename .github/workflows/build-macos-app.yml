@@ -26,10 +26,10 @@ jobs:
     name: Build macOS app
     runs-on: macos-14
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
 
       - name: Set up Python for icon padding
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: '3.12'
 
@@ -42,19 +42,19 @@ jobs:
         run: bash native/mac-app/build.sh
 
       - name: Zip the app bundle
+        env:
+          DSH_VERSION: ${{ github.event.inputs.dsh_version }}
         run: |
-          ver="${GITHUB_REF_NAME#v}"
-          if [ "$ver" = "$GITHUB_REF_NAME" ]; then
-            ver="${{ github.event.inputs.dsh_version }}"
-            if [ -z "$ver" ]; then
-              ver="$(node -p "require('./native/electron/package.json').version")"
-            fi
-          fi
+          # The artifact name must carry the packaged dsh runtime version (same
+          # source as the app's CFBundleShortVersionString). A fork release tag
+          # (v0.1.x) only names the release; letting it drive the artifact name
+          # would make Sparkle/electron-updater see mismatched versions.
+          ver="${DSH_VERSION:-$(tr -d '[:space:]' < native/mac-app/DSH_VERSION)}"
           cd dist
           zip -ry "DeepSeek-Harness-${ver}-macos-arm64.zip" "DeepSeek Harness.app"
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: deepseek-harness-macos-arm64
           path: dist/DeepSeek-Harness-*-macos-arm64.zip
@@ -73,7 +73,7 @@ jobs:
 
       - name: Attach to GitHub Release
         if: steps.tag.outputs.tag_name != ''
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3.0.2
         with:
           tag_name: ${{ steps.tag.outputs.tag_name }}
           files: dist/DeepSeek-Harness-*-macos-arm64.zip
@@ -86,10 +86,13 @@ jobs:
         env:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
           TAG: ${{ steps.tag.outputs.tag_name }}
+          DSH_VERSION: ${{ github.event.inputs.dsh_version }}
         run: |
           set -euo pipefail
           echo "::group::appcast debug"
-          VER="$(echo "$TAG" | sed 's/^v//')"
+          # Same version source as the zip step and build.sh: the packaged dsh
+          # runtime version. TAG only names the release the zip lives in.
+          VER="${DSH_VERSION:-$(tr -d '[:space:]' < native/mac-app/DSH_VERSION)}"
           test -f "dist/DeepSeek-Harness-$VER-macos-arm64.zip" && echo "zip ok"
           curl -fsSL -o /tmp/Sparkle.tar.xz "https://github.com/sparkle-project/Sparkle/releases/download/2.9.5/Sparkle-2.9.5.tar.xz" && echo "curl ok"
           tar -xf /tmp/Sparkle.tar.xz -C /tmp && echo "tar ok"

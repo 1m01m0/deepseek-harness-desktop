@@ -103,13 +103,13 @@ async function main() {
   fs.rmSync(STAGING, { recursive: true, force: true })
   fs.mkdirSync(STAGING, { recursive: true })
 
-  // Artifact version: tag (v0.1.2 -> 0.1.2) wins, then dsh_version (auto
-  // releases), else package.json stays as-is. Synced into package.json so
-  // electron-builder's ${version} resolves.
-  const refName = process.env.GITHUB_REF_NAME
-  const appVersion = (refName && refName.startsWith('v'))
-    ? refName.slice(1)
-    : (process.env.DSH_VERSION || null)
+  // The app version is the packaged dsh runtime version (DSH_VERSION): it is
+  // what electron-updater/latest.yml compares, so it must move only when the
+  // runtime moves. A fork release tag (v0.1.x) only identifies a packaging
+  // build and must not drive it, or updates would be skipped or downgraded
+  // (e.g. 0.1.7 > 0.1.0-rc.7 while shipping an older runtime). Synced into
+  // package.json so electron-builder's ${version} resolves.
+  const appVersion = DSH_VERSION || null
   if (appVersion) {
     const pkgPath = path.join(DIR, 'package.json')
     const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'))
