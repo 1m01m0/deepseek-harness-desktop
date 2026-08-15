@@ -6,7 +6,7 @@ English | [中文](README.zh.md)
 >
 > - **Download installers**: [Releases page](https://github.com/1m01m0/deepseek-harness-desktop/releases) (macOS zip, Windows exe, Linux AppImage)
 > - **Packaging code**: [`native/mac-app`](native/mac-app) (macOS, Swift shell) | [`native/electron`](native/electron) (Windows / Linux, Electron shell)
-> - **Auto-updates**: the `check-npm-updates` workflow checks daily for new `@deepseek-ai/dsh` releases and automatically rebuilds and publishes installers for all three platforms
+> - **Automated releases**: the `sync-upstream` workflow merges the upstream repo daily, and `check-npm-updates` checks npm daily for new `@deepseek-ai/dsh` releases, pins the new version, rebuilds and publishes installers for all three platforms automatically
 
 ## Installation
 
@@ -44,6 +44,17 @@ Download the installer for your platform from the [Releases page](https://github
    ```
 
 Configure your model API key in the app on first launch.
+
+## Automated releases
+
+The release pipeline is fully automated and runs daily with no manual steps:
+
+1. **Sync upstream source**: the `sync-upstream` workflow merges the official [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) master into this repo daily at 08:00 UTC. On a merge conflict the run fails and notifies you on GitHub; master stays untouched until you resolve it manually and re-run.
+2. **Detect new npm releases**: the `check-npm-updates` workflow compares the latest `@deepseek-ai/dsh` version on npm with the version recorded in `native/mac-app/DSH_VERSION` daily at 09:17 UTC.
+3. **Package and publish**: when a new version is found, it first writes the version back into `DSH_VERSION` (so the next daily check does not re-trigger the same build), then triggers the macOS / Windows / Linux packaging workflows, which create a `v<dsh-version>` Release, upload the installers, and refresh the macOS Sparkle appcast and the Windows `latest.yml` update feed.
+4. **Client updates**: see the next section.
+
+> Pushing a `v0.1.x` tag manually still works for shipping packaging fixes, but never affects update decisions — the app version always equals the packaged dsh runtime version.
 
 ## Automatic updates
 

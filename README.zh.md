@@ -6,7 +6,7 @@
 >
 > - **下载安装包**：[Releases 页面](https://github.com/1m01m0/deepseek-harness-desktop/releases)（macOS zip、Windows exe、Linux AppImage）
 > - **打包实现**：[`native/mac-app`](native/mac-app)（macOS，Swift 壳）｜[`native/electron`](native/electron)（Windows / Linux，Electron 壳）
-> - **自动更新**：`check-npm-updates` 工作流每天检测官方 `@deepseek-ai/dsh` 新版，自动重新打包并发布三平台安装包
+> - **自动发布**：`sync-upstream` 每天自动同步上游源码；`check-npm-updates` 每天检测官方 `@deepseek-ai/dsh` 新版，自动回写版本号、重新打包并发布三平台 Release
 
 ## 安装
 
@@ -44,6 +44,17 @@
    ```
 
 首次启动后，在 App 内配置模型 API 密钥即可使用。
+
+## 自动发布
+
+发布流程完全自动化，每天自动运转，无需手动操作：
+
+1. **同步上游源码**：`sync-upstream` 工作流每天 08:00 UTC 将官方 [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) 的 master 合并进本仓库；若出现合并冲突，运行会失败并在 GitHub 通知你，master 保持原样，需手动解决后重跑。
+2. **检测 npm 新版**：`check-npm-updates` 工作流每天 09:17 UTC 对比 npm 上 `@deepseek-ai/dsh` 的最新版本与 `native/mac-app/DSH_VERSION` 中记录的版本。
+3. **自动打包发布**：发现新版后，先把新版本号回写进 `DSH_VERSION`（保证次日检测不会重复触发），再触发 macOS / Windows / Linux 三个打包工作流，自动创建 `v<dsh版本>` Release、上传安装包，并更新 macOS 的 Sparkle appcast 与 Windows 的 `latest.yml` 更新源。
+4. **客户端更新**：见下节「自动更新」。
+
+> 手动推送 `v0.1.x` 标签仍可用于发布打包修复，但不影响更新判定——App 版本号始终等于所打包的 dsh 运行时版本。
 
 ## 自动更新
 
