@@ -37,6 +37,7 @@ native/electron/.staging/
 native/electron/dist/
 native/electron/node_modules/
 .artifacts/
+.dsh-build/
 .playwright-mcp/
 .orig
 .worktrees/
