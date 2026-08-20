@@ -25,6 +25,10 @@ jobs:
   build:
     name: Build macOS app
     runs-on: macos-14
+    env:
+      # rc releases have a large dependency graph; npm's default ~2 GB V8
+      # heap can OOM before the bundled runtime is staged.
+      NODE_OPTIONS: --max-old-space-size=4096
     steps:
       - uses: actions/checkout@v7.0.1
 

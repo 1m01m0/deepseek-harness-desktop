@@ -25,6 +25,8 @@ jobs:
   build:
     name: Build Windows app
     runs-on: windows-latest
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
     steps:
       - uses: actions/checkout@v7.0.1
 
