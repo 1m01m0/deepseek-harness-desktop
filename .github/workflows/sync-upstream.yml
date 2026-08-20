@@ -1,7 +1,8 @@
 # Daily: merge upstream deepseek-ai/deepseek-harness master into the fork's
-# master so the repo tracks the source. Packaging is npm-driven and unaffected
-# by this sync; on conflict the job fails loudly for manual resolution (the
-# fork never force-pushes, so a failed sync leaves master untouched).
+# master so the repo tracks the source. The fork intentionally keeps its own
+# packaging workflows and AGENTS.md; those paths are preserved as deletions
+# when upstream changes them. Any other conflict fails with a summary so it
+# cannot silently publish a partial merge.
 name: sync-upstream
 
 on:
@@ -12,25 +13,129 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: false
+
 jobs:
   sync:
     name: Merge upstream master
     runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.merge.outputs.changed }}
+      upstream_sha: ${{ steps.merge.outputs.upstream_sha }}
+      merged_sha: ${{ steps.merge.outputs.merged_sha }}
     steps:
       - uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0
 
       - name: Merge upstream/master
+        id: merge
         run: |
+          set -euo pipefail
+
           git remote add upstream https://github.com/deepseek-ai/deepseek-harness.git
           git fetch upstream master
+          UPSTREAM_SHA="$(git rev-parse upstream/master)"
+          echo "upstream_sha=$UPSTREAM_SHA" >> "$GITHUB_OUTPUT"
+
           if git merge-base --is-ancestor upstream/master HEAD; then
-            echo "already up to date with upstream/master"
+            echo "already up to date with upstream/master ($UPSTREAM_SHA)"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "merged_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+
           git config user.name "github-actions"
           git config user.email "actions@github.com"
+
+          # The fork deliberately removed these upstream-only files. Resolve
+          # only those known modify/delete conflicts automatically; stop on
+          # every other conflict so an upstream change is never discarded.
+          set +e
           git merge --no-edit upstream/master
+          MERGE_STATUS=$?
+          set -e
+
+          if [ "$MERGE_STATUS" -ne 0 ]; then
+            CONFLICTS=()
+            while IFS= read -r path; do
+              CONFLICTS+=("$path")
+            done < <(git diff --name-only --diff-filter=U)
+            UNEXPECTED=()
+            for path in "${CONFLICTS[@]}"; do
+              case "$path" in
+                .github/workflows/*|AGENTS.md)
+                  # If the fork does not have the path at HEAD, it is one of
+                  # the upstream-only files intentionally removed from this
+                  # packaging fork. A same-path file in the fork is unknown.
+                  git cat-file -e "HEAD:$path" 2>/dev/null || continue
+                  UNEXPECTED+=("$path")
+                  ;;
+                package.json)
+                  ;;
+                *)
+                  UNEXPECTED+=("$path")
+                  ;;
+              esac
+            done
+
+            if [ "${#CONFLICTS[@]}" -eq 0 ] || [ "${#UNEXPECTED[@]}" -ne 0 ]; then
+              {
+                echo "### Upstream merge stopped"
+                echo
+                echo "The merge was not published because it contains an unknown conflict."
+                echo
+                echo '```text'
+                if [ "${#UNEXPECTED[@]}" -eq 0 ]; then
+                  echo "git merge exited with status $MERGE_STATUS without a conflict list"
+                else
+                  printf '%s\n' "${UNEXPECTED[@]}"
+                fi
+                echo '```'
+                echo
+                echo "Resolve the listed files, then rerun this workflow."
+              } >> "$GITHUB_STEP_SUMMARY"
+              git merge --abort || true
+              exit "$MERGE_STATUS"
+            fi
+
+            for path in "${CONFLICTS[@]}"; do
+              if [ "$path" = "package.json" ]; then
+                # Keep upstream's package version and scripts, while retaining
+                # the fork's three local verification hooks. The build command
+                # itself intentionally follows upstream because it changes with
+                # the source release.
+                git checkout --theirs -- package.json
+                node <<'NODE'
+          const { execFileSync } = require('node:child_process')
+          const fs = require('node:fs')
+          const ours = JSON.parse(execFileSync('git', ['show', 'HEAD:package.json'], { encoding: 'utf8' }))
+          const theirs = JSON.parse(fs.readFileSync('package.json', 'utf8'))
+          const keep = ['prebuild', 'prebuild:web', 'predev:web']
+          for (const key of keep) {
+            if (ours.scripts?.[key] !== undefined && theirs.scripts?.[key] === undefined) {
+              theirs.scripts ??= {}
+              theirs.scripts[key] = ours.scripts[key]
+            }
+          }
+          fs.writeFileSync('package.json', `${JSON.stringify(theirs, null, 2)}\n`)
+          NODE
+                git add package.json
+              elif [[ "$path" == .github/workflows/* || "$path" == AGENTS.md ]]; then
+                git rm -- "$path"
+              else
+                echo "unexpected conflict escaped validation: $path"
+                git merge --abort || true
+                exit 1
+              fi
+            done
+            git commit --no-edit
+            echo "resolved expected fork-only deletions: ${CONFLICTS[*]}"
+          fi
+
           git push origin master
-          echo "merged upstream/master and pushed"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "merged_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "merged upstream/master ($UPSTREAM_SHA) and pushed"
