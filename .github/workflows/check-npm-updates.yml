@@ -1,5 +1,8 @@
 # Check npm for a newer @deepseek-ai/dsh release and, when one exists, trigger
 # all platform builds so a fresh installer lands in a v<version> release.
+# Do not rely on npm's `latest` dist-tag: prereleases such as rc.8 can already
+# be published while that tag still points at the previous rc. Compare the
+# highest published SemVer instead.
 # The workflow_run trigger closes the loop immediately after a successful
 # upstream sync; the schedule and manual trigger remain available as fallbacks.
 name: check-npm-updates
@@ -33,20 +36,73 @@ jobs:
       - uses: actions/checkout@v7.0.1
 
       - id: check
-        name: Compare npm latest vs pinned version
+        name: Compare highest npm version vs pinned version
         run: |
           set -euo pipefail
-          latest="$(curl -fsSL https://registry.npmjs.org/@deepseek-ai/dsh/latest | jq -r .version)"
           pinned="$(tr -d '[:space:]' < native/mac-app/DSH_VERSION)"
+          metadata="$(mktemp)"
+          trap 'rm -f "$metadata"' EXIT
+          curl -fsSL https://registry.npmjs.org/@deepseek-ai/dsh -o "$metadata"
+
+          # npm can publish a prerelease without moving the `latest` dist-tag.
+          # Resolve the highest valid SemVer and compare precedence rather than
+          # treating any string mismatch as an update (which could downgrade a
+          # manually pinned version).
+          result="$(PINNED="$pinned" python3 - "$metadata" <<'PY'
+          import json
+          import os
+          import re
+          import sys
+
+          semver = re.compile(
+              r"^(?P<major>0|[1-9][0-9]*)\."
+              r"(?P<minor>0|[1-9][0-9]*)\."
+              r"(?P<patch>0|[1-9][0-9]*)"
+              r"(?:-(?P<pre>[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?"
+              r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$"
+          )
+
+          def key(version):
+              match = semver.fullmatch(version.lstrip("v"))
+              if not match:
+                  return None
+              core = tuple(int(match.group(name)) for name in ("major", "minor", "patch"))
+              pre = match.group("pre")
+              if pre is None:
+                  # A stable release has higher precedence than any prerelease.
+                  return core + ((1, ()),)
+              fields = []
+              for field in pre.split("."):
+                  if field.isdigit():
+                      fields.append((0, int(field)))
+                  else:
+                      fields.append((1, field))
+              return core + ((0, tuple(fields)),)
+
+          with open(sys.argv[1], encoding="utf-8") as handle:
+              metadata = json.load(handle)
+          versions = [version for version in metadata.get("versions", {}) if key(version) is not None]
+          if not versions:
+              raise SystemExit("npm returned no valid @deepseek-ai/dsh versions")
+          latest = max(versions, key=key)
+          pinned = os.environ["PINNED"]
+          pinned_key = key(pinned)
+          if pinned_key is None:
+              raise SystemExit(f"invalid pinned DSH_VERSION: {pinned}")
+          print(f"{latest}\t{key(latest) > pinned_key}")
+          PY
+          )"
+          latest="${result%%$'\t'*}"
+          has_update="${result#*$'\t'}"
           test -n "$latest" || { echo "npm returned an empty version"; exit 1; }
           echo "latest=$latest" >> "$GITHUB_OUTPUT"
           echo "pinned=$pinned"
-          if [ "$latest" = "$pinned" ]; then
-            echo "has_update=false" >> "$GITHUB_OUTPUT"
-            echo "up to date ($latest)"
-          else
+          if [ "$has_update" = "True" ]; then
             echo "has_update=true" >> "$GITHUB_OUTPUT"
             echo "update available: $pinned -> $latest"
+          else
+            echo "has_update=false" >> "$GITHUB_OUTPUT"
+            echo "up to date or pinned version is newer ($pinned; registry max $latest)"
           fi
 
   trigger-build:
