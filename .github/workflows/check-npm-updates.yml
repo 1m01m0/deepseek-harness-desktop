@@ -1,20 +1,30 @@
 # Check npm for a newer @deepseek-ai/dsh release and, when one exists, trigger
-# build-macos-app (with the new version) so a fresh installer lands in a
-# `v<version>` release. Runs daily and on demand.
+# all platform builds so a fresh installer lands in a v<version> release.
+# The workflow_run trigger closes the loop immediately after a successful
+# upstream sync; the schedule and manual trigger remain available as fallbacks.
 name: check-npm-updates
 
 on:
   schedule:
     - cron: '17 9 * * *'   # daily 09:17 UTC
   workflow_dispatch:
+  workflow_run:
+    workflows: [sync-upstream]
+    types: [completed]
 
 permissions:
   contents: write
   actions: write
 
+concurrency:
+  group: check-npm-updates
+  cancel-in-progress: false
+
 jobs:
   check:
     name: Check for npm update
+    # A failed upstream merge must not start a package check/build chain.
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     outputs:
       latest: ${{ steps.check.outputs.latest }}
@@ -25,8 +35,10 @@ jobs:
       - id: check
         name: Compare npm latest vs pinned version
         run: |
+          set -euo pipefail
           latest="$(curl -fsSL https://registry.npmjs.org/@deepseek-ai/dsh/latest | jq -r .version)"
-          pinned="$(cat native/mac-app/DSH_VERSION)"
+          pinned="$(tr -d '[:space:]' < native/mac-app/DSH_VERSION)"
+          test -n "$latest" || { echo "npm returned an empty version"; exit 1; }
           echo "latest=$latest" >> "$GITHUB_OUTPUT"
           echo "pinned=$pinned"
           if [ "$latest" = "$pinned" ]; then
@@ -44,26 +56,50 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
 
       - name: Bump DSH_VERSION pin
+        id: bump
         env:
           NEXT_VERSION: ${{ needs.check.outputs.latest }}
         run: |
-          # Close the loop: without this commit the daily check keeps seeing a
-          # mismatch and re-triggers the same builds forever. Trade-off: if a
-          # build below fails after this commit, re-trigger it manually.
-          printf '%s\n' "$NEXT_VERSION" > native/mac-app/DSH_VERSION
+          set -euo pipefail
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add native/mac-app/DSH_VERSION
-          git commit -m "chore: bump DSH_VERSION to $NEXT_VERSION" || echo "pin already at $NEXT_VERSION"
-          git pull --rebase origin master || echo "rebase failed; push below will fail loudly"
-          git push origin master
+          echo "pushed=false" >> "$GITHUB_OUTPUT"
+
+          # Rebase on the latest master before each attempt. This makes the
+          # scheduled check safe to run next to a sync-upstream completion.
+          for attempt in 1 2 3; do
+            git fetch origin master
+            git checkout -B master origin/master
+            printf '%s\n' "$NEXT_VERSION" > native/mac-app/DSH_VERSION
+            if git diff --quiet -- native/mac-app/DSH_VERSION; then
+              echo "pin already at $NEXT_VERSION; no build dispatch needed"
+              exit 0
+            fi
+            git add native/mac-app/DSH_VERSION
+            git commit -m "chore: bump DSH_VERSION to $NEXT_VERSION"
+            if git push origin HEAD:master; then
+              echo "pushed DSH_VERSION=$NEXT_VERSION"
+              printf '%s\n' "pushed=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "could not push DSH_VERSION after $attempt attempts"
+              exit 1
+            fi
+            echo "push race; retrying ($attempt/3)"
+            sleep 2
+          done
 
       - name: Trigger macOS / Windows / Linux builds
+        if: steps.bump.outputs.pushed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
           for wf in build-macos-app build-windows-app build-linux-app; do
             gh workflow run "$wf.yml" \
               -R "${{ github.repository }}" \
