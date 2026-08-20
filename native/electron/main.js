@@ -43,13 +43,39 @@ function isPortable() {
 }
 
 function compareVersions(a, b) {
-  // numeric dotted comparison; returns >0 when a is newer
-  const pa = String(a).replace(/^v/, '').split('.').map(Number)
-  const pb = String(b).replace(/^v/, '').split('.').map(Number)
-  for (let i = 0; i < Math.max(pa.length, pb.length); i += 1) {
-    const x = pa[i] || 0
-    const y = pb[i] || 0
-    if (x !== y) return x - y
+  // Semver-like comparison: stable releases are newer than prereleases, so
+  // 0.1.0 correctly sorts after 0.1.0-rc.7.
+  const parse = (value) => {
+    const clean = String(value).trim().replace(/^v/, '').split('+', 1)[0]
+    const separator = clean.indexOf('-')
+    const core = separator === -1 ? clean : clean.slice(0, separator)
+    const prerelease = separator === -1 ? null : clean.slice(separator + 1)
+    return {
+      core: core.split('.').map((part) => Number.parseInt(part, 10) || 0),
+      prerelease: prerelease === null ? null : prerelease.split('.'),
+    }
+  }
+
+  const left = parse(a)
+  const right = parse(b)
+  for (let i = 0; i < Math.max(left.core.length, right.core.length); i += 1) {
+    const delta = (left.core[i] || 0) - (right.core[i] || 0)
+    if (delta !== 0) return delta
+  }
+
+  if (left.prerelease === null || right.prerelease === null) {
+    if (left.prerelease === right.prerelease) return 0
+    return left.prerelease === null ? 1 : -1
+  }
+  for (let i = 0; i < Math.max(left.prerelease.length, right.prerelease.length); i += 1) {
+    const x = left.prerelease[i]
+    const y = right.prerelease[i]
+    if (x === undefined || y === undefined) return x === undefined ? -1 : 1
+    const xNumeric = /^\d+$/.test(x)
+    const yNumeric = /^\d+$/.test(y)
+    if (xNumeric && yNumeric && Number(x) !== Number(y)) return Number(x) - Number(y)
+    if (xNumeric !== yNumeric) return xNumeric ? -1 : 1
+    if (x !== y) return x.localeCompare(y)
   }
   return 0
 }
@@ -100,6 +126,7 @@ function setupAutoUpdater() {
   autoUpdater.autoInstallOnAppQuit = true
 
   autoUpdater.on('update-downloaded', (info) => {
+    if (!win || win.isDestroyed()) return
     dialog.showMessageBox(win, {
       type: 'info',
       title: '更新已就绪',
@@ -301,7 +328,6 @@ function isLocal(url) {
 
 app.whenReady().then(() => {
   buildMenu()
-  setupAutoUpdater()
 
   win = new BrowserWindow({
     width: 1280,
@@ -331,6 +357,9 @@ app.whenReady().then(() => {
     }
   })
 
+  // Create the window before starting the updater so a fast download cannot
+  // try to show its completion dialog against a null BrowserWindow.
+  setupAutoUpdater()
   startServer()
 })
 
