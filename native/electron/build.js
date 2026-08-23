@@ -154,9 +154,10 @@ async function main() {
   // 3. validate the runtime boots
   await validate(nodeSrcBin, dshBin)
 
-  // 4. package; publish artifacts + update feeds (latest.yml / latest-mac.yml)
-  //    to the GitHub Release only when running in CI (needs GH_TOKEN env).
-  const publishFlag = process.env.CI === 'true' ? 'always' : 'never'
+  // 4. package; publish artifacts + update feeds (latest.yml / latest-mac.yml).
+  //    DSH_PUBLISH lets a workflow handle release uploads separately.
+  const publishFlag = process.env.DSH_PUBLISH
+    || (process.env.CI === 'true' ? 'always' : 'never')
   run(npxCmd, ['electron-builder', targetFlag, '--publish', publishFlag], { cwd: DIR })
 
   console.log(`done: see ${path.join(DIR, 'dist')}`)

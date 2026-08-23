@@ -53,6 +53,7 @@ jobs:
         env:
           DSH_VERSION: ${{ github.event.inputs.dsh_version }}
           DSH_TARGET_PLATFORM: win32
+          DSH_PUBLISH: never
           GH_TOKEN: ${{ github.token }}
         run: node build.js
 
@@ -66,14 +67,39 @@ jobs:
       - name: Resolve release tag
         id: tag
         shell: bash
+        env:
+          DSH_VERSION_INPUT: ${{ github.event.inputs.dsh_version }}
         run: |
+          set -euo pipefail
           if [ "${{ github.ref_type }}" = "tag" ]; then
-            echo "tag_name=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
-          elif [ -n "${{ github.event.inputs.dsh_version }}" ]; then
-            echo "tag_name=v${{ github.event.inputs.dsh_version }}" >> "$GITHUB_OUTPUT"
+            release_tag="${{ github.ref_name }}"
           else
-            echo "tag_name=" >> "$GITHUB_OUTPUT"
+            version="${DSH_VERSION_INPUT:-$(tr -d '[:space:]' < native/mac-app/DSH_VERSION)}"
+            release_tag="v${version}"
           fi
+          echo "tag_name=${release_tag}" >> "$GITHUB_OUTPUT"
+          echo "release tag: ${release_tag}"
 
-      # electron-builder --publish always (run in CI, see build.js) uploads the
-      # NSIS/portable exes plus the latest.yml update feed used by electron-updater.
+      # Upload explicitly with --clobber because electron-builder refuses to
+      # replace assets in an existing published release after its age threshold.
+      - name: Ensure Release and upload Windows assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.tag.outputs.tag_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! gh release view "$RELEASE_TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" \
+              -R "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "$RELEASE_TAG" \
+              --generate-notes
+          fi
+          gh release upload "$RELEASE_TAG" \
+            -R "$GITHUB_REPOSITORY" \
+            native/electron/dist/*-setup.exe \
+            native/electron/dist/*-setup.exe.blockmap \
+            native/electron/dist/*-portable.exe \
+            native/electron/dist/latest.yml \
+            --clobber
