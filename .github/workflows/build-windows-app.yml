@@ -3,14 +3,20 @@
 #
 # Triggers:
 #   - v* tag push: build + attach to the tag's release
+#   - master push touching native/electron: rebuild and refresh the current
+#     dsh-version release automatically (packaging fixes)
 #   - workflow_dispatch: build + artifact; with `dsh_version` set, also create
 #     the `v<version>` release (used by check-npm-updates)
 name: build-windows-app
 
 on:
   push:
+    branches:
+      - master
     tags:
       - 'v*'
+    paths:
+      - 'native/electron/**'
   workflow_dispatch:
     inputs:
       dsh_version:
@@ -20,6 +26,10 @@ on:
 
 permissions:
   contents: write
+
+concurrency:
+  group: build-windows-app-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
