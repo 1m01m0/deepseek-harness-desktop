@@ -69,7 +69,7 @@ async function validate(nodeBin, dshBin) {
     DSH_HOME: path.join(STAGING, 'val-home'),
     DSH_TELEMETRY_DISABLED: '1',
   }
-  const proc = spawn(nodeBin, [dshBin, 'web', '--port', '0'], {
+  const proc = spawn(nodeBin, [dshBin, 'web', '--port', '0', '--no-open'], {
     env,
     stdio: ['ignore', 'pipe', 'pipe'],
   })

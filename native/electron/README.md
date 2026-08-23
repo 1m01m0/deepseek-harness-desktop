@@ -4,7 +4,7 @@
 
 - 内置官方 **Node** 二进制（默认 v24 LTS）
 - 内置官方 **`@deepseek-ai/dsh`** npm 运行时（`node_modules`，含前端 dist）
-- Electron 主进程启动 `dsh web --port 0`，解析就绪行后加载页面
+- Electron 主进程启动 `dsh web --port 0 --no-open`，解析就绪行后在桌面窗口内加载页面，不打开外部浏览器
 
 产物（`native/electron/dist/`）：
 - Windows：NSIS 安装器（`DeepSeek Harness Setup <ver>.exe`）+ 便携版（`DeepSeek Harness <ver>.exe`）
@@ -38,7 +38,7 @@ DSH_TARGET_PLATFORM=win32 node build.js   # 显式指定目标平台
 
 与 macOS 壳一致：
 
-- 服务器随 App 启动/退出；端口 `--port 0` 由系统分配；就绪信号为 stdout 的 `dsh web: http://127.0.0.1:<port>`。
+- 服务器随 App 启动/退出；端口 `--port 0` 由系统分配；桌面启动传入 `--no-open`，不会额外打开系统浏览器；就绪信号为 stdout 的 `dsh web: http://127.0.0.1:<port>`。
 - 数据目录：`%APPDATA%\DeepSeek Harness\dsh`（Windows）／`~/Library/Application Support/DeepSeek Harness/dsh`（macOS）／`~/.config/DeepSeek Harness/dsh`（Linux），与终端版隔离。
 - 退出时向服务器发 SIGTERM（POSIX 优雅退出；Windows 上为终止进程）。
 

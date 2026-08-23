@@ -1,5 +1,5 @@
 // DeepSeek Harness desktop shell (Electron). Cross-platform equivalent of
-// native/mac-app/main.swift: boot the bundled `dsh web --port 0` server, parse
+// native/mac-app/main.swift: boot the bundled `dsh web --port 0 --no-open` server, parse
 // the readiness line from stdout, and load it in a BrowserWindow.
 'use strict'
 
@@ -279,7 +279,7 @@ function startServer() {
     DSH_TELEMETRY_DISABLED: '1',
   }
 
-  const proc = spawn(nodeBinary(), [dshEntry(), 'web', '--port', '0'], {
+  const proc = spawn(nodeBinary(), [dshEntry(), 'web', '--port', '0', '--no-open'], {
     cwd: app.getPath('home'),
     env,
     stdio: ['ignore', 'pipe', 'pipe'],
