@@ -4,7 +4,7 @@ set -euo pipefail
 # Package the DeepSeek Harness web app as a self-contained macOS .app:
 #   - bundles an official Node binary (v24 LTS, darwin)
 #   - bundles the published @deepseek-ai/dsh npm runtime (node_modules)
-#   - a small AppKit/WKWebView shell boots `dsh web --port 0` and loads it
+#   - a small AppKit/WKWebView shell boots `dsh web --port 0 --no-open` and loads it
 # Output: <repo>/dist/DeepSeek Harness.app
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -59,7 +59,7 @@ echo "==> 4/7 Validate the runtime boots the web profile"
 VAL_HOME="$(mktemp -d)"
 VAL_LOG="$STAGING/validate.log"
 DSH_HOME="$VAL_HOME" DSH_TELEMETRY_DISABLED=1 \
-  "$NODE_DIR/bin/node" "$DSH_BIN" web --port 0 >"$VAL_LOG" 2>&1 &
+  "$NODE_DIR/bin/node" "$DSH_BIN" web --port 0 --no-open >"$VAL_LOG" 2>&1 &
 VAL_PID=$!
 PORT=""
 for _ in $(seq 1 150); do

@@ -155,7 +155,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         let pipe = Pipe()
         let proc = Process()
         proc.executableURL = nodeBinary
-        proc.arguments = [dshEntry.path, "web", "--port", "0"]
+        proc.arguments = [dshEntry.path, "web", "--port", "0", "--no-open"]
         proc.currentDirectoryURL = FileManager.default.homeDirectoryForCurrentUser
         proc.environment = env
         proc.standardOutput = pipe

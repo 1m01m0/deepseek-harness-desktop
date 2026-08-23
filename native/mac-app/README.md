@@ -3,7 +3,7 @@
 把 DeepSeek Harness 的 Web UI 打包成一个自包含的 macOS `.app`：
 - 内置官方 **Node** 二进制（默认 v24 LTS，arm64/x64）
 - 内置官方 **`@deepseek-ai/dsh`** npm 运行时（`node_modules`，含前端 dist）
-- 一个小的 **AppKit + WKWebView** 壳，启动 `dsh web --port 0` 并加载页面
+- 一个小的 **AppKit + WKWebView** 壳，启动 `dsh web --port 0 --no-open` 并加载页面
 
 产物：`dist/DeepSeek Harness.app`（ad-hoc 签名，适合本机使用）。
 
@@ -33,7 +33,7 @@ open "dist/DeepSeek Harness.app"
 
 ## 行为
 
-- 服务器进程随 App 启动/退出；就绪信号为 stdout 中的 `dsh web: http://127.0.0.1:<port>`，端口由 `--port 0` 交给系统分配，避免与已有服务冲突。
+- 服务器进程随 App 启动/退出；启动参数为 `dsh web --port 0 --no-open`，因此页面只在桌面端内置窗口加载，不会额外打开系统浏览器。就绪信号为 stdout 中的 `dsh web: http://127.0.0.1:<port>`，端口由 `--port 0` 交给系统分配，避免与已有服务冲突。
 - 数据目录：`~/Library/Application Support/DeepSeek Harness/dsh`（即 `DSH_HOME`），与终端版 `~/.dsh` 隔离；`DSH_TELEMETRY_DISABLED=1`。
 - 首次启动在该目录写入 profiles/settings/storages；模型 API 密钥在 App 内配置。
 - 外部链接（非 `127.0.0.1`/`localhost` 的 http/https）用系统默认浏览器打开。
@@ -46,6 +46,6 @@ open "dist/DeepSeek Harness.app"
 
 ## 备注
 
-- 构建脚本第 3 步会先用打包进去的 Node + npm 运行时真启动一次 `dsh web` 并请求首页做预校验，通过后才组装 App。
+- 构建脚本第 3 步会先用打包进去的 Node + npm 运行时真启动一次 `dsh web --no-open` 并请求首页做预校验，通过后才组装 App。
 - 若官方 npm 运行时的 web 启动失败，可改用本地仓库构建产物作为运行时（用 `scripts/release/pack.ts` 产出的 tarball + `file:` 依赖组装 node_modules）。
 - App 为 **ad-hoc 签名**，本机可直接运行；从 GitHub 下载的 zip 会被 Gatekeeper 拦，需右键 → 打开，或 `xattr -dr com.apple.quarantine <app>`。对外分发建议加 Developer ID 签名 + notarization。
