@@ -66,6 +66,18 @@ function declaredInput(configured: readonly PiAiModality[] | undefined): Model<A
 }
 
 /**
+ * Standard Gemini model ids are multimodal even when an OpenAI-compatible
+ * gateway omits modality metadata from its model listing. This is only a
+ * fallback: an explicit model declaration and an installed catalog entry win.
+ * @param id - The model id exposed by the gateway.
+ * @param fallback - The route's configured modality fallback.
+ * @returns The inferred modalities for a standard Gemini id, or the route fallback.
+ */
+function inferredInput(id: string, fallback: Model<Api>['input']): Model<Api>['input'] {
+  return /^gemini(?:[-_]|$)/i.test(id) ? ['text', 'image'] : [...fallback]
+}
+
+/**
  * Every pi-ai thinking level, in pi-ai's canonical escalation order. The
  * `Record` key type is a drift gate: a pi-ai upgrade that adds or removes a
  * level fails compilation here naming the drifted key, instead of silently
@@ -891,7 +903,7 @@ export function resolveRouteModels(request: RouteCatalogRequest): RouteCatalog {
       api,
       provider,
       baseUrl,
-      input: declaredInput(entry.input) ?? base?.input ?? [...request.defaultInput],
+      input: declaredInput(entry.input) ?? base?.input ?? inferredInput(entry.id, request.defaultInput),
       cost: base?.cost ?? NO_COST,
       contextWindow,
       maxTokens,

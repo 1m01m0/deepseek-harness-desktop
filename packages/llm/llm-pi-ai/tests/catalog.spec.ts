@@ -194,7 +194,13 @@ describe('hand-declared providers', () => {
         api: 'openai-completions',
         baseURL: 'https://acme.test',
         // One route, two modality sets: the entry field is what says so.
-        models: [{ id: 'bare' }, { id: 'seeing', input: ['text', 'image'] }, { id: 'deaf', input: ['text'] }],
+        models: [
+          { id: 'bare' },
+          { id: 'seeing', input: ['text', 'image'] },
+          { id: 'deaf', input: ['text'] },
+          { id: 'gemini-3.7-flash-high' },
+          { id: 'gemini-text-only', input: ['text'] },
+        ],
       },
       'seeing-gateway': {
         api: 'openai-completions',
@@ -215,6 +221,9 @@ describe('hand-declared providers', () => {
     expect(inputOf('acme-gateway', 'bare')).toEqual(['text'])
     expect(inputOf('acme-gateway', 'seeing')).toEqual(['text', 'image'])
     expect(inputOf('acme-gateway', 'deaf')).toEqual(['text'])
+    expect(inputOf('acme-gateway', 'gemini-3.7-flash-high')).toEqual(['text', 'image'])
+    // An explicit declaration remains authoritative over the Gemini fallback.
+    expect(inputOf('acme-gateway', 'gemini-text-only')).toEqual(['text'])
     expect(inputOf('seeing-gateway', 'bare')).toEqual(['text', 'image'])
     expect(inputOf('seeing-gateway', 'deaf')).toEqual(['text'])
     expect(inputOf('anthropic', vision.id)).toEqual(vision.input)

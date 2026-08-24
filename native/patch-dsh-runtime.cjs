@@ -3,8 +3,9 @@
 
 // The desktop shells install the published dsh runtime. Keep this small,
 // idempotent overlay until the corresponding upstream package is published.
-// The overlay only preserves modality metadata that the runtime already knows;
-// it never guesses that a model supports images from its name or provider.
+// The overlay preserves upstream modality metadata and adds the desktop
+// fallback for standard Gemini model ids when an OpenAI-compatible gateway
+// omits that metadata. Explicit model declarations remain authoritative.
 
 const fs = require('fs')
 const path = require('path')
@@ -41,6 +42,20 @@ patch(
   'lib/index.js',
   `\t\t\t\t...model.maxTokens === void 0 ? {} : { maxTokens: model.maxTokens }\n\t\t\t});`,
   `\t\t\t\t...model.maxTokens === void 0 ? {} : { maxTokens: model.maxTokens },\n\t\t\t\t...model.inputModalities === void 0 ? {} : { inputModalities: [...model.inputModalities] }\n\t\t\t});`,
+)
+
+patch(
+  'dsh-llm-pi-ai',
+  'lib/index.js',
+  `function declaredInput(configured) {\n\treturn configured === void 0 || configured.length === 0 ? void 0 : [...configured];\n}`,
+  `function declaredInput(configured) {\n\treturn configured === void 0 || configured.length === 0 ? void 0 : [...configured];\n}\nfunction inferredInput(id, fallback) {\n\treturn /^gemini(?:[-_]|$)/i.test(id) ? ["text", "image"] : [...fallback];\n}`,
+)
+
+patch(
+  'dsh-llm-pi-ai',
+  'lib/index.js',
+  `input: declaredInput(entry.input) ?? base?.input ?? [...request.defaultInput],`,
+  `input: declaredInput(entry.input) ?? base?.input ?? inferredInput(entry.id, request.defaultInput),`,
 )
 
 patch(
