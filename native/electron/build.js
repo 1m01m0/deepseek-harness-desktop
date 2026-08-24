@@ -1,5 +1,6 @@
 // Cross-platform build for the Electron shell: download a Node binary, install
-// the published @deepseek-ai/dsh runtime, validate it boots, then run
+// the published @deepseek-ai/dsh runtime, apply the local compatibility patch,
+// validate it boots, then run
 // electron-builder for the target platform.
 //
 //   node build.js                      # builds for the current platform
@@ -148,6 +149,7 @@ async function main() {
   // 2. npm install the dsh runtime
   const dshDir = path.join(STAGING, 'dsh')
   run(npmCmd, ['install', '--prefix', dshDir, '--no-audit', '--no-fund', `@deepseek-ai/dsh@${DSH_VERSION}`])
+  run(process.execPath, [path.join(DIR, '..', 'patch-dsh-runtime.cjs'), path.join(dshDir, 'node_modules')])
   const dshBin = path.join(dshDir, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
   if (!fs.existsSync(dshBin)) throw new Error('dsh bin missing after install')
 

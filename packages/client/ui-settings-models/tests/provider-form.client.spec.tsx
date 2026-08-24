@@ -469,7 +469,10 @@ describe('endpoint interrogation', () => {
 
   it('adopts only the picked candidates, keeping a row the user already tuned', async () => {
     const discover = vi.fn(() => Promise.resolve(ok({
-      models: [{ id: 'kept', contextWindow: 999 }, { id: 'fresh', contextWindow: 4096, name: 'Fresh' }],
+      models: [
+        { id: 'kept', contextWindow: 999 },
+        { id: 'fresh', contextWindow: 4096, name: 'Fresh', inputModalities: ['text', 'image'] },
+      ],
     })))
     const { mutate } = await mountSection({
       discover,
@@ -488,7 +491,7 @@ describe('endpoint interrogation', () => {
     await waitFor(() => { expect(mutate).toHaveBeenCalled() })
     expect(firstMutate(mutate).ops[0]?.value).toEqual([
       { id: 'kept', contextWindow: 111 },
-      { id: 'fresh', contextWindow: 4096, name: 'Fresh' },
+      { id: 'fresh', contextWindow: 4096, name: 'Fresh', input: ['text', 'image'] },
     ])
   })
 

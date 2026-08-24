@@ -3,7 +3,8 @@ set -euo pipefail
 
 # Package the DeepSeek Harness web app as a self-contained macOS .app:
 #   - bundles an official Node binary (v24 LTS, darwin)
-#   - bundles the published @deepseek-ai/dsh npm runtime (node_modules)
+#   - bundles the published @deepseek-ai/dsh npm runtime (node_modules), with
+#     the local modality-discovery compatibility patch applied
 #   - a small AppKit/WKWebView shell boots `dsh web --port 0 --no-open` and loads it
 # Output: <repo>/dist/DeepSeek Harness.app
 
@@ -45,6 +46,7 @@ cp "$NODE_DIR/bin/node" "$APP_DIR/Contents/Resources/runtime/node/bin/node"
 
 echo "==> 2/7 Stage dsh runtime (v$DSH_VERSION)"
 npm install --prefix "$STAGING/dsh" --no-audit --no-fund "@deepseek-ai/dsh@$DSH_VERSION"
+"$NODE_DIR/bin/node" "$ROOT/native/patch-dsh-runtime.cjs" "$STAGING/dsh/node_modules"
 DSH_BIN="$STAGING/dsh/node_modules/@deepseek-ai/dsh/lib/bin.js"
 test -f "$DSH_BIN" || { echo "dsh bin missing after install"; exit 1; }
 

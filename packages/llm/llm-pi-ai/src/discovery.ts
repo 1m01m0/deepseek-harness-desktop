@@ -23,7 +23,7 @@
  */
 
 import { INVALID_CREDENTIAL_CODE, LlmError, normalizeApiKey } from '@deepseek-ai/dsh-llm'
-import type { LlmDiscoveredModel, LlmModelDiscoveryRequest } from '@deepseek-ai/dsh-llm'
+import type { LlmDiscoveredModel, LlmModelDiscoveryRequest, ModelModality } from '@deepseek-ai/dsh-llm'
 import { attributionHeaders } from '@deepseek-ai/dsh-llm'
 import { catalogModels } from './catalog.ts'
 
@@ -59,12 +59,26 @@ interface ListingEntry {
   context_length?: unknown
   max_tokens?: unknown
   max_output_tokens?: unknown
+  input?: unknown
+  input_modalities?: unknown
+  inputModalities?: unknown
+  modalities?: unknown
 }
 
 /** A positive integer field of a listing entry, or `undefined` when absent or unusable. */
 function capacity(...candidates: readonly unknown[]): number | undefined {
   for (const candidate of candidates) {
     if (typeof candidate === 'number' && Number.isInteger(candidate) && candidate > 0) return candidate
+  }
+  return undefined
+}
+
+/** A supported request-modality list, or `undefined` when the endpoint is silent. */
+function modalities(...candidates: readonly unknown[]): ModelModality[] | undefined {
+  for (const candidate of candidates) {
+    if (!Array.isArray(candidate)) continue
+    const values = candidate.filter((value): value is ModelModality => value === 'text' || value === 'image')
+    if (values.length > 0) return [...new Set(values)]
   }
   return undefined
 }
@@ -151,11 +165,13 @@ function readListing(body: unknown): LlmDiscoveredModel[] {
     const name = label(entry?.name, entry?.display_name)
     const contextWindow = capacity(entry?.context_window, entry?.context_length)
     const maxTokens = capacity(entry?.max_output_tokens, entry?.max_tokens)
+    const inputModalities = modalities(entry?.input, entry?.input_modalities, entry?.inputModalities, entry?.modalities)
     models.push({
       id,
       ...name === undefined ? {} : { name },
       ...contextWindow === undefined ? {} : { contextWindow },
       ...maxTokens === undefined ? {} : { maxTokens },
+      ...inputModalities === undefined ? {} : { inputModalities },
     })
   }
   return models
@@ -206,6 +222,7 @@ export async function discoverModels(
         name: model.name,
         contextWindow: model.contextWindow,
         maxTokens: model.maxTokens,
+        inputModalities: [...model.input],
       }))
     }
   }
