@@ -7,6 +7,7 @@
 //   DSH_TARGET_PLATFORM=win32 node build.js
 //
 // Env: NODE_MAJOR (default 24), DSH_VERSION (default native/mac-app/DSH_VERSION),
+//      DESKTOP_VERSION (tag version or native/mac-app/DESKTOP_VERSION),
 //      DSH_TARGET_PLATFORM (win32|darwin|linux), DSH_TARGET_ARCH (x64|arm64).
 'use strict'
 
@@ -18,10 +19,17 @@ const path = require('path')
 const DIR = __dirname
 const STAGING = path.join(DIR, '.staging')
 const VERSION_FILE = path.join(DIR, '..', 'mac-app', 'DSH_VERSION')
+const DESKTOP_VERSION_FILE = path.join(DIR, '..', 'mac-app', 'DESKTOP_VERSION')
 
 const NODE_MAJOR = process.env.NODE_MAJOR || '24'
 const DSH_VERSION = process.env.DSH_VERSION
   || fs.readFileSync(VERSION_FILE, 'utf8').trim()
+const desktopTagVersion = process.env.GITHUB_REF_NAME?.startsWith('v')
+  ? process.env.GITHUB_REF_NAME.slice(1)
+  : null
+const DESKTOP_VERSION = process.env.DESKTOP_VERSION
+  || desktopTagVersion
+  || fs.readFileSync(DESKTOP_VERSION_FILE, 'utf8').trim()
 
 const platform = process.env.DSH_TARGET_PLATFORM || process.platform
 const arch = process.env.DSH_TARGET_ARCH || (os.arch() === 'arm64' ? 'arm64' : 'x64')
@@ -104,13 +112,11 @@ async function main() {
   fs.rmSync(STAGING, { recursive: true, force: true })
   fs.mkdirSync(STAGING, { recursive: true })
 
-  // The app version is the packaged dsh runtime version (DSH_VERSION): it is
-  // what electron-updater/latest.yml compares, so it must move only when the
-  // runtime moves. A fork release tag (v0.1.x) only identifies a packaging
-  // build and must not drive it, or updates would be skipped or downgraded
-  // (e.g. 0.1.7 > 0.1.0-rc.7 while shipping an older runtime). Synced into
-  // package.json so electron-builder's ${version} resolves.
-  const appVersion = DSH_VERSION || null
+  // The app version identifies the desktop package, not the bundled dsh
+  // runtime. A packaging-only fix must be visible to
+  // electron-updater/latest.yml even when DSH_VERSION stays unchanged.
+  // Synced into package.json so electron-builder's ${version} resolves.
+  const appVersion = DESKTOP_VERSION || null
   if (appVersion) {
     const pkgPath = path.join(DIR, 'package.json')
     const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'))
@@ -119,7 +125,7 @@ async function main() {
     console.log(`app version -> ${appVersion}`)
   }
 
-  console.log(`target: ${platform}-${arch}, dsh ${DSH_VERSION}, node ${NODE_MAJOR}.x`)
+  console.log(`target: ${platform}-${arch}, desktop ${DESKTOP_VERSION}, dsh ${DSH_VERSION}, node ${NODE_MAJOR}.x`)
 
   // 1. resolve node version + download + extract
   const idx = await (await fetch('https://nodejs.org/dist/index.json')).json()

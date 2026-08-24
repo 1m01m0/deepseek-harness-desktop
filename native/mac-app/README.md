@@ -25,11 +25,12 @@ open "dist/DeepSeek Harness.app"
 |---|---|---|
 | `NODE_MAJOR` | `24` | 内置 Node 大版本（LTS） |
 | `DSH_VERSION` | `native/mac-app/DSH_VERSION` 文件 | 打包的 `@deepseek-ai/dsh` npm 版本（环境变量可覆盖） |
-| `ICON_SRC` | `native/mac-app/app-icon.svg` | App 图标 SVG 源文件（可用环境变量覆盖） |
+| `DESKTOP_VERSION` | tag 版本或 `native/mac-app/DESKTOP_VERSION` 文件 | App/Sparkle 使用的桌面安装包版本，每次发布新包必须递增 |
+| `ICON_SRC` | `native/mac-app/app-icon.svg` | App 图标 SVG 源文件（当前为红色 DeepSeek logo，并带透明边距与圆角底板；可用环境变量覆盖） |
 
 例如 `DSH_VERSION=0.1.0-rc.5 bash native/mac-app/build.sh`。
 
-图标源优先使用 `native/mac-app/app-icon.svg`（当前为 DeepSeek 官方 logo），缺失时回退到 `apps/web/public/favicon.svg`。
+图标源优先使用 `native/mac-app/app-icon.svg`，缺失时回退到 `apps/web/public/favicon.svg`。默认源已经包含透明边距，因此不会再被构建脚本压成满版方形图标。
 
 ## 行为
 
@@ -42,7 +43,7 @@ open "dist/DeepSeek Harness.app"
 
 仓库内的 [`.github/workflows/build-macos-app.yml`](../../.github/workflows/build-macos-app.yml) 会在 **tag（`v*`）推送**时自动在 macOS runner 上构建并把 `DeepSeek Harness-macos-arm64.zip` 挂到对应 Release；也支持 `workflow_dispatch` 手动触发（仅构建 + 上传 artifact，不发布）。
 
-[`.github/workflows/check-npm-updates.yml`](../../.github/workflows/check-npm-updates.yml) 每天检查一次 `@deepseek-ai/dsh` 在 npm 的最新版本，若高于 `DSH_VERSION` 文件里记录的版本，就自动触发 `build-macos-app`（传入新版本），生成新的 `v<version>` Release 安装包。
+[`.github/workflows/check-npm-updates.yml`](../../.github/workflows/check-npm-updates.yml) 每天检查一次 `@deepseek-ai/dsh` 在 npm 的最新版本，若高于 `DSH_VERSION` 文件里记录的版本，就递增 `DESKTOP_VERSION` 并自动触发 `build-macos-app`，生成新的 `v<桌面版本>` Release 安装包。只要桌面版本提高，Sparkle 就会提供更新，即使 dsh 运行时未变化。
 
 ## 备注
 

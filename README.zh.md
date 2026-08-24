@@ -51,10 +51,10 @@
 
 1. **同步上游源码**：`sync-upstream` 工作流每天 08:00 UTC 将官方 [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) 的 master 合并进本仓库；若出现合并冲突，运行会失败并在 GitHub 通知你，master 保持原样，需手动解决后重跑。
 2. **检测 npm 新版**：`check-npm-updates` 工作流每天 09:17 UTC 对比 npm 上 `@deepseek-ai/dsh` 的最新版本与 `native/mac-app/DSH_VERSION` 中记录的版本。
-3. **自动打包发布**：发现新版后，先把新版本号回写进 `DSH_VERSION`（保证次日检测不会重复触发），再触发 macOS / Windows / Linux 三个打包工作流，自动创建 `v<dsh版本>` Release、上传安装包，并更新 macOS 的 Sparkle appcast 与 Windows 的 `latest.yml` 更新源。
+3. **自动打包发布**：发现新版后，回写 `DSH_VERSION`，同时递增独立的 `DESKTOP_VERSION`，再触发 macOS / Windows / Linux 三个打包工作流，自动创建 `v<桌面版本>` Release、上传安装包，并更新 macOS 的 Sparkle appcast 与 Windows 的 `latest.yml` 更新源。
 4. **客户端更新**：见下节「自动更新」。
 
-> 手动推送 `v0.1.x` 标签仍可用于发布打包修复，但不影响更新判定——App 版本号始终等于所打包的 dsh 运行时版本。
+> 手动推送 `v0.1.x` 标签可用于发布打包修复；标签版本就是 App 的桌面版本，因此即使 dsh 运行时未变化，客户端也会收到更新。
 
 ## 自动更新
 
@@ -62,7 +62,7 @@
 - **Windows 便携版**：便携版无法自动更新，请从 [Releases 页面](https://github.com/1m01m0/deepseek-harness-desktop/releases) 下载新版安装包。
 - **Linux AppImage**：自动安装暂不支持，菜单「检查更新…」会检查新版并打开下载页面。
 
-> **版本号说明**：App 的版本号即所打包的 dsh 运行时版本（如 `0.1.0-rc.6`），Release 标签（`v0.1.x`）仅用于标识打包构建，两者不同步不会触发更新。安装过 `v0.1.7` 及更早安装包的用户，因旧版本号高于新版体系（`0.1.7 > 0.1.0-rc.x`），需要**手动下载一次**最新安装包完成切换，之后即可正常自动更新。
+> **版本号说明**：App 使用独立、单调递增的桌面版本（`DESKTOP_VERSION`）；安装包内的 dsh 运行时版本由 `DSH_VERSION` 单独记录。只要发布了更高桌面版本的新安装包，macOS / Windows 安装版就会收到更新，即使 dsh 运行时没有变化。
 
 ## 原项目
 

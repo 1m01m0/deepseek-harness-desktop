@@ -51,10 +51,10 @@ The release pipeline is fully automated and runs daily with no manual steps:
 
 1. **Sync upstream source**: the `sync-upstream` workflow merges the official [deepseek-harness](https://github.com/deepseek-ai/deepseek-harness) master into this repo daily at 08:00 UTC. On a merge conflict the run fails and notifies you on GitHub; master stays untouched until you resolve it manually and re-run.
 2. **Detect new npm releases**: the `check-npm-updates` workflow compares the latest `@deepseek-ai/dsh` version on npm with the version recorded in `native/mac-app/DSH_VERSION` daily at 09:17 UTC.
-3. **Package and publish**: when a new version is found, it first writes the version back into `DSH_VERSION` (so the next daily check does not re-trigger the same build), then triggers the macOS / Windows / Linux packaging workflows, which create a `v<dsh-version>` Release, upload the installers, and refresh the macOS Sparkle appcast and the Windows `latest.yml` update feed.
+3. **Package and publish**: when a new version is found, it updates `DSH_VERSION`, increments the independent `DESKTOP_VERSION`, then triggers the macOS / Windows / Linux packaging workflows. They create a `v<desktop-version>` Release, upload the installers, and refresh the macOS Sparkle appcast and Windows `latest.yml` feed.
 4. **Client updates**: see the next section.
 
-> Pushing a `v0.1.x` tag manually still works for shipping packaging fixes, but never affects update decisions — the app version always equals the packaged dsh runtime version.
+> Pushing a `v0.1.x` tag manually publishes a packaging fix; the tag version becomes the desktop app version, so clients update even when the bundled dsh runtime is unchanged.
 
 ## Automatic updates
 
@@ -62,7 +62,7 @@ The release pipeline is fully automated and runs daily with no manual steps:
 - **Windows portable**: the portable build cannot update itself; download the new installer from the [Releases page](https://github.com/1m01m0/deepseek-harness-desktop/releases).
 - **Linux AppImage**: automatic installation is not supported yet; “Check for Updates…” opens the download page when a new release exists.
 
-> **About version numbers**: the app's version is the version of the packaged dsh runtime (e.g. `0.1.0-rc.6`); a Release tag (`v0.1.x`) only identifies a packaging build and never triggers an update by itself. Users of `v0.1.7` or earlier installers need **one manual download** of the latest installer to switch over (their old version number `0.1.7` is higher than the new `0.1.0-rc.x` scheme); automatic updates work normally afterwards.
+> **About version numbers**: the app uses an independent, monotonically increasing desktop version (`DESKTOP_VERSION`), while the bundled dsh runtime stays pinned by `DSH_VERSION`. Every installer release with a higher desktop version is therefore updateable even when the dsh runtime is unchanged.
 
 ## Original project
 

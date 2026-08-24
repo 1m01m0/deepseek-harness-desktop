@@ -20,7 +20,7 @@ node build.js                # 构建当前平台
 DSH_TARGET_PLATFORM=win32 node build.js   # 显式指定目标平台
 ```
 
-变量：`NODE_MAJOR`（默认 `24`）、`DSH_VERSION`（默认 [`native/mac-app/DSH_VERSION`](../mac-app/DSH_VERSION)）、`DSH_TARGET_PLATFORM`（`win32|darwin|linux`）、`DSH_TARGET_ARCH`（`x64|arm64`）。
+变量：`NODE_MAJOR`（默认 `24`）、`DSH_VERSION`（默认 [`native/mac-app/DSH_VERSION`](../mac-app/DSH_VERSION)）、`DESKTOP_VERSION`（默认 tag 版本或 [`native/mac-app/DESKTOP_VERSION`](../mac-app/DESKTOP_VERSION)）、`DSH_TARGET_PLATFORM`（`win32|darwin|linux`）、`DSH_TARGET_ARCH`（`x64|arm64`）。
 
 > 在 macOS/Linux 上交叉构建 Windows 目标通常需要 wine 且不可靠；Windows 安装包应在 Windows 上构建（见下面的 CI）。
 
@@ -34,6 +34,8 @@ DSH_TARGET_PLATFORM=win32 node build.js   # 显式指定目标平台
 
 `check-npm-updates` 定时任务检测到新版本时会同时触发以上三者。
 
+桌面安装包使用独立、单调递增的 `DESKTOP_VERSION`；`DSH_VERSION` 只选择内置运行时。因此每次发布新的桌面安装包都会生成更高的更新版本，Windows 安装版可由 `electron-updater` 自动下载并在重启时安装。
+
 ## 行为
 
 与 macOS 壳一致：
@@ -44,5 +46,5 @@ DSH_TARGET_PLATFORM=win32 node build.js   # 显式指定目标平台
 
 ## 备注
 
-- Windows 构建暂无自定义 `.ico` 图标（使用 Electron 默认图标），后续可加 `build/icon.ico`。
+- Windows、macOS、Linux 均使用 `build/icon.png` 作为应用图标；electron-builder 会按目标平台生成对应图标资源，不再回退到 Electron/Tauri 默认图标。
 - 安装包未签名；Windows 首次运行可能触发 SmartScreen 提示。

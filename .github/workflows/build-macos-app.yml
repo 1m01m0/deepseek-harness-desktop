@@ -1,10 +1,11 @@
 # Build the self-contained macOS desktop app (native/mac-app) and attach the
-# .zip installer to a GitHub Release.
+# .zip installer to a GitHub Release. The desktop package version is separate
+# from the bundled dsh runtime version so packaging-only fixes are updateable.
 #
 # Triggers:
 #   - v* tag push: build + zip + attach to the tag's release
-#   - workflow_dispatch: build + zip + artifact; when `dsh_version` is set
-#     (used by the check-npm-updates cron), also create the `v<version>` release
+#   - workflow_dispatch: build + zip + artifact; when versions are provided
+#     (used by check-npm-updates), also create the desktop-version release
 name: build-macos-app
 
 on:
@@ -15,6 +16,10 @@ on:
     inputs:
       dsh_version:
         description: 'dsh npm version to package (defaults to native/mac-app/DSH_VERSION)'
+        required: false
+        default: ''
+      desktop_version:
+        description: 'desktop installer version (defaults to tag or native/mac-app/DESKTOP_VERSION)'
         required: false
         default: ''
 
@@ -43,17 +48,19 @@ jobs:
       - name: Build the app
         env:
           DSH_VERSION: ${{ github.event.inputs.dsh_version }}
+          DESKTOP_VERSION: ${{ github.event.inputs.desktop_version }}
         run: bash native/mac-app/build.sh
 
       - name: Zip the app bundle
         env:
           DSH_VERSION: ${{ github.event.inputs.dsh_version }}
+          DESKTOP_VERSION: ${{ github.event.inputs.desktop_version }}
         run: |
-          # The artifact name must carry the packaged dsh runtime version (same
-          # source as the app's CFBundleShortVersionString). A fork release tag
-          # (v0.1.x) only names the release; letting it drive the artifact name
-          # would make Sparkle/electron-updater see mismatched versions.
-          ver="${DSH_VERSION:-$(tr -d '[:space:]' < native/mac-app/DSH_VERSION)}"
+          ver="${DESKTOP_VERSION:-}"
+          if [ -z "$ver" ] && [[ "${GITHUB_REF_NAME:-}" == v* ]]; then
+            ver="${GITHUB_REF_NAME#v}"
+          fi
+          ver="${ver:-$(tr -d '[:space:]' < native/mac-app/DESKTOP_VERSION)}"
           cd dist
           zip -ry "DeepSeek-Harness-${ver}-macos-arm64.zip" "DeepSeek Harness.app"
 
@@ -69,8 +76,10 @@ jobs:
         run: |
           if [ "${{ github.ref_type }}" = "tag" ]; then
             echo "tag_name=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          elif [ -n "${{ github.event.inputs.desktop_version }}" ]; then
+            echo "tag_name=v${{ github.event.inputs.desktop_version }}" >> "$GITHUB_OUTPUT"
           elif [ -n "${{ github.event.inputs.dsh_version }}" ]; then
-            echo "tag_name=v${{ github.event.inputs.dsh_version }}" >> "$GITHUB_OUTPUT"
+            echo "tag_name=v$(tr -d '[:space:]' < native/mac-app/DESKTOP_VERSION)" >> "$GITHUB_OUTPUT"
           else
             echo "tag_name=" >> "$GITHUB_OUTPUT"
           fi
@@ -91,12 +100,15 @@ jobs:
           SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
           TAG: ${{ steps.tag.outputs.tag_name }}
           DSH_VERSION: ${{ github.event.inputs.dsh_version }}
+          DESKTOP_VERSION: ${{ github.event.inputs.desktop_version }}
         run: |
           set -euo pipefail
           echo "::group::appcast debug"
-          # Same version source as the zip step and build.sh: the packaged dsh
-          # runtime version. TAG only names the release the zip lives in.
-          VER="${DSH_VERSION:-$(tr -d '[:space:]' < native/mac-app/DSH_VERSION)}"
+          VER="${DESKTOP_VERSION:-}"
+          if [ -z "$VER" ] && [[ "${GITHUB_REF_NAME:-}" == v* ]]; then
+            VER="${GITHUB_REF_NAME#v}"
+          fi
+          VER="${VER:-$(tr -d '[:space:]' < native/mac-app/DESKTOP_VERSION)}"
           test -f "dist/DeepSeek-Harness-$VER-macos-arm64.zip" && echo "zip ok"
           curl -fsSL -o /tmp/Sparkle.tar.xz "https://github.com/sparkle-project/Sparkle/releases/download/2.9.5/Sparkle-2.9.5.tar.xz" && echo "curl ok"
           tar -xf /tmp/Sparkle.tar.xz -C /tmp && echo "tar ok"

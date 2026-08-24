@@ -1,5 +1,6 @@
 # Check npm for a newer @deepseek-ai/dsh release and, when one exists, trigger
-# all platform builds so a fresh installer lands in a v<version> release.
+# all platform builds so a fresh installer lands in a new desktop-version
+# release. The desktop version advances independently from the dsh runtime.
 # Do not rely on npm's `latest` dist-tag: prereleases such as rc.8 can already
 # be published while that tag still points at the previous rc. Compare the
 # highest published SemVer instead.
@@ -115,7 +116,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Bump DSH_VERSION pin
+      - name: Bump runtime pin and desktop package version
         id: bump
         env:
           NEXT_VERSION: ${{ needs.check.outputs.latest }}
@@ -130,15 +131,23 @@ jobs:
           for attempt in 1 2 3; do
             git fetch origin master
             git checkout -B master origin/master
+            current_desktop="$(tr -d '[:space:]' < native/mac-app/DESKTOP_VERSION)"
+            if [[ ! "$current_desktop" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+              echo "invalid DESKTOP_VERSION: $current_desktop"
+              exit 1
+            fi
+            next_desktop="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.$((10#${BASH_REMATCH[3]} + 1))"
             printf '%s\n' "$NEXT_VERSION" > native/mac-app/DSH_VERSION
-            if git diff --quiet -- native/mac-app/DSH_VERSION; then
+            printf '%s\n' "$next_desktop" > native/mac-app/DESKTOP_VERSION
+            if git diff --quiet -- native/mac-app/DSH_VERSION native/mac-app/DESKTOP_VERSION; then
               echo "pin already at $NEXT_VERSION; no build dispatch needed"
               exit 0
             fi
-            git add native/mac-app/DSH_VERSION
-            git commit -m "chore: bump DSH_VERSION to $NEXT_VERSION"
+            git add native/mac-app/DSH_VERSION native/mac-app/DESKTOP_VERSION
+            git commit -m "chore: bump desktop package to $next_desktop"
             if git push origin HEAD:master; then
-              echo "pushed DSH_VERSION=$NEXT_VERSION"
+              echo "pushed DSH_VERSION=$NEXT_VERSION DESKTOP_VERSION=$next_desktop"
+              echo "desktop_version=$next_desktop" >> "$GITHUB_OUTPUT"
               printf '%s\n' "pushed=true" >> "$GITHUB_OUTPUT"
               exit 0
             fi
@@ -159,6 +168,7 @@ jobs:
           for wf in build-macos-app build-windows-app build-linux-app; do
             gh workflow run "$wf.yml" \
               -R "${{ github.repository }}" \
-              -f dsh_version="${{ needs.check.outputs.latest }}"
+              -f dsh_version="${{ needs.check.outputs.latest }}" \
+              -f desktop_version="${{ steps.bump.outputs.desktop_version }}"
           done
-          echo "triggered all three platform builds for dsh ${{ needs.check.outputs.latest }}"
+          echo "triggered all three platform builds for desktop ${{ steps.bump.outputs.desktop_version }} with dsh ${{ needs.check.outputs.latest }}"

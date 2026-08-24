@@ -32,6 +32,7 @@
       { "from": ".staging/dsh/node_modules", "to": "dsh/node_modules" }
     ],
     "win": {
+      "icon": "build/icon.png",
       "target": ["nsis", "portable"]
     },
     "nsis": {
@@ -43,9 +44,11 @@
       "artifactName": "DeepSeek-Harness-${version}-windows-x64-portable.${ext}"
     },
     "mac": {
+      "icon": "build/icon.png",
       "target": ["zip"]
     },
     "linux": {
+      "icon": "build/icon.png",
       "target": ["AppImage"],
       "artifactName": "DeepSeek-Harness-${version}-linux-x64.${ext}"
     }

@@ -19,6 +19,10 @@ NODE_MAJOR="${NODE_MAJOR:-24}"
 # Single source of truth for the packaged dsh version: native/mac-app/DSH_VERSION.
 # The DSH_VERSION env var (e.g. set by CI) still overrides it.
 DSH_VERSION="${DSH_VERSION:-$(cat "$MAC_DIR/DSH_VERSION" 2>/dev/null || echo 0.1.0-rc.6)}"
+if [ -z "${DESKTOP_VERSION:-}" ] && [[ "${GITHUB_REF_NAME:-}" == v* ]]; then
+  DESKTOP_VERSION="${GITHUB_REF_NAME#v}"
+fi
+DESKTOP_VERSION="${DESKTOP_VERSION:-$(cat "$MAC_DIR/DESKTOP_VERSION" 2>/dev/null || echo 0.1.0)}"
 
 case "$(uname -m)" in
   arm64)  NODE_ARCH="arm64" ;;
@@ -94,17 +98,15 @@ cp -R "$STAGING/dsh/node_modules" "$APP_DIR/Contents/Resources/dsh/node_modules"
 mkdir -p "$APP_DIR/Contents/Frameworks"
 cp -R "$STAGING/Sparkle.framework" "$APP_DIR/Contents/Frameworks/"
 
-# The app version IS the packaged dsh runtime version (DSH_VERSION): Sparkle
-# and electron-updater compare this string, so it must move only when the
-# runtime moves. A fork release tag (v0.1.x) only identifies a packaging build;
-# using it here would make auto-updaters skip or even downgrade runtime updates
-# (e.g. 0.1.7 > 0.1.0-rc.7 while shipping an older runtime).
-APP_VERSION="$(echo "$DSH_VERSION" | tr -d '[:space:]' | sed 's/^v//')"
+# The app version identifies this desktop package. It must move for every
+# packaging fix so Sparkle/electron-updater can update users even when the
+# bundled dsh runtime version stays unchanged.
+APP_VERSION="$(echo "$DESKTOP_VERSION" | tr -d '[:space:]' | sed 's/^v//')"
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $APP_VERSION" "$APP_DIR/Contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $APP_VERSION" "$APP_DIR/Contents/Info.plist"
 echo "    app version: $APP_VERSION"
 
-echo "==> 7/7 Icon (best effort)"
+echo "==> 7/7 Icon"
 # Prefer $ICON_SRC (env), then native/mac-app/app-icon.svg, then the favicon.
 ICON_SRC="${ICON_SRC:-}"
 if [ -z "$ICON_SRC" ] || [ ! -f "$ICON_SRC" ]; then
@@ -121,11 +123,9 @@ if [ -f "$ICON_SRC" ]; then
   qlmanage -t -s 1024 -o "$STAGING" "$ICON_SRC" >/dev/null 2>&1 || true
   PNG="$STAGING/$(basename "$ICON_SRC").png"
   if [ -f "$PNG" ]; then
-    # macOS only applies its rounded-corner mask to icons that have transparent
-    # margins; a full-bleed render shows the artwork's own corners (looks
-    # square). Pad the logo to ~82% on a transparent 1024x1024 canvas. Best
-    # effort: needs python3 + Pillow; falls back to the full-bleed render.
-    if PADDED="$(python3 - "$PNG" <<'PY' 2>/dev/null
+    # app-icon.svg already contains a transparent margin and rounded tile. Keep
+    # that geometry intact; only pad custom or fallback full-bleed sources.
+    if [ "$ICON_SRC" != "$MAC_DIR/app-icon.svg" ] && PADDED="$(python3 - "$PNG" <<'PY' 2>/dev/null
 import sys
 try:
     from PIL import Image
@@ -144,8 +144,10 @@ PY
 )"; then
       PNG="$PADDED"
       echo "    padded to rounded-mask canvas"
-    else
+    elif [ "$ICON_SRC" != "$MAC_DIR/app-icon.svg" ]; then
       echo "    Pillow unavailable; using full-bleed icon (square corners)"
+    else
+      echo "    using transparent rounded icon canvas"
     fi
     for s in 16 32 128 256 512; do
       sips -z "$s" "$s" "$PNG" --out "$ICONSET/icon_${s}x${s}.png" >/dev/null 2>&1

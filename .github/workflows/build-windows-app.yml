@@ -1,12 +1,14 @@
 # Build the Windows Electron desktop app (native/electron) and attach the
-# NSIS installer + portable exe to a GitHub Release.
+# NSIS installer + portable exe to a GitHub Release. The desktop package
+# version is separate from the bundled dsh runtime version so packaging-only
+# fixes are updateable.
 #
 # Triggers:
 #   - v* tag push: build + attach to the tag's release
 #   - master push touching native/electron: rebuild and refresh the current
-#     dsh-version release automatically (packaging fixes)
-#   - workflow_dispatch: build + artifact; with `dsh_version` set, also create
-#     the `v<version>` release (used by check-npm-updates)
+#     desktop-version release automatically (packaging fixes)
+#   - workflow_dispatch: build + artifact; with versions set, also create the
+#     desktop-version release (used by check-npm-updates)
 name: build-windows-app
 
 on:
@@ -21,6 +23,10 @@ on:
     inputs:
       dsh_version:
         description: 'dsh npm version to package (defaults to native/mac-app/DSH_VERSION)'
+        required: false
+        default: ''
+      desktop_version:
+        description: 'desktop installer version (defaults to tag or native/mac-app/DESKTOP_VERSION)'
         required: false
         default: ''
 
@@ -52,6 +58,7 @@ jobs:
         working-directory: native/electron
         env:
           DSH_VERSION: ${{ github.event.inputs.dsh_version }}
+          DESKTOP_VERSION: ${{ github.event.inputs.desktop_version }}
           DSH_TARGET_PLATFORM: win32
           DSH_PUBLISH: never
           GH_TOKEN: ${{ github.token }}
@@ -69,12 +76,13 @@ jobs:
         shell: bash
         env:
           DSH_VERSION_INPUT: ${{ github.event.inputs.dsh_version }}
+          DESKTOP_VERSION_INPUT: ${{ github.event.inputs.desktop_version }}
         run: |
           set -euo pipefail
           if [ "${{ github.ref_type }}" = "tag" ]; then
             release_tag="${{ github.ref_name }}"
           else
-            version="${DSH_VERSION_INPUT:-$(tr -d '[:space:]' < native/mac-app/DSH_VERSION)}"
+            version="${DESKTOP_VERSION_INPUT:-$(tr -d '[:space:]' < native/mac-app/DESKTOP_VERSION)}"
             release_tag="v${version}"
           fi
           echo "tag_name=${release_tag}" >> "$GITHUB_OUTPUT"
