@@ -17,7 +17,7 @@
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
 	<key>SUFeedURL</key>
-	<string>https://1m01m0.github.io/deepseek-harness-desktop/appcast.xml</string>
+	<string>https://emohomepage.ccwu.cc/deepseek-harness-desktop/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>Xzg4L8J/o3bXuqKoqyGvEdfikF+Z56ACuImVQOI5wD0=</string>
 	<key>SUEnableAutomaticChecks</key>

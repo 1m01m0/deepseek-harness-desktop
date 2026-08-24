@@ -92,8 +92,8 @@ jobs:
           files: dist/DeepSeek-Harness-*-macos-arm64.zip
 
       # Sparkle feed: sign the macOS zip with the EdDSA private key and push
-      # appcast.xml to the gh-pages branch (published at
-      # https://1m01m0.github.io/deepseek-harness-desktop/appcast.xml).
+      # appcast.xml to the gh-pages branch (served through the custom-domain
+      # URL below so Sparkle receives a direct 200 response instead of a 301).
       - name: Publish Sparkle appcast
         if: steps.tag.outputs.tag_name != ''
         env:
