@@ -1,50 +1,55 @@
-# 跨平台桌面壳（Electron）
+# DeepSeek Harness Electron App
 
-用 Electron 把 DeepSeek Harness 的 Web UI 打包成桌面应用，与 [`native/mac-app`](../mac-app) 的 Swift 壳对应，但跨 Windows / macOS / Linux：
+English | [中文](README.zh.md)
 
-- 内置官方 **Node** 二进制（默认 v24 LTS）
-- 内置官方 **`@deepseek-ai/dsh`** npm 运行时（`node_modules`，含前端 dist）
-- Electron 主进程启动 `dsh web --port 0 --no-open`，解析就绪行后在桌面窗口内加载页面，不打开外部浏览器
+Package the DeepSeek Harness Web UI as an Electron desktop application for Windows, macOS, and Linux. This is the cross-platform counterpart of the Swift shell in [`native/mac-app`](../mac-app), with:
 
-产物（`native/electron/dist/`）：
-- Windows：NSIS 安装器（`DeepSeek Harness Setup <ver>.exe`）+ 便携版（`DeepSeek Harness <ver>.exe`）
-- macOS：`.dmg` + `.zip`
-- Linux：`.AppImage`
+- The official Node binary (v24 LTS by default).
+- The official `@deepseek-ai/dsh` npm runtime (`node_modules`, including the frontend dist).
+- An Electron main process that starts `dsh web --port 0 --no-open`, reads its readiness line, and loads the page inside the desktop window without opening an external browser.
 
-## 构建
+Outputs in `native/electron/dist/`:
+
+- Windows: an NSIS installer (`DeepSeek-Harness-<version>-windows-x64-setup.exe`) and portable executable (`DeepSeek-Harness-<version>-windows-x64-portable.exe`).
+- macOS: `.dmg` and `.zip`.
+- Linux: `.AppImage`.
+
+## Build
 
 ```sh
 cd native/electron
-npm install                  # 安装 electron + electron-builder
-node build.js                # 构建当前平台
-DSH_TARGET_PLATFORM=win32 node build.js   # 显式指定目标平台
+npm install
+node build.js
+DSH_TARGET_PLATFORM=win32 node build.js
 ```
 
-变量：`NODE_MAJOR`（默认 `24`）、`DSH_VERSION`（默认 [`native/mac-app/DSH_VERSION`](../mac-app/DSH_VERSION)）、`DESKTOP_VERSION`（默认 tag 版本或 [`native/mac-app/DESKTOP_VERSION`](../mac-app/DESKTOP_VERSION)）、`DSH_TARGET_PLATFORM`（`win32|darwin|linux`）、`DSH_TARGET_ARCH`（`x64|arm64`）。
+## Configuration
 
-> 在 macOS/Linux 上交叉构建 Windows 目标通常需要 wine 且不可靠；Windows 安装包应在 Windows 上构建（见下面的 CI）。
+`NODE_MAJOR` defaults to `24`; `DSH_VERSION` defaults to [`native/mac-app/DSH_VERSION`](../mac-app/DSH_VERSION); `DESKTOP_VERSION` defaults to the tag version or [`native/mac-app/DESKTOP_VERSION`](../mac-app/DESKTOP_VERSION). `DSH_TARGET_PLATFORM` selects `win32|darwin|linux`, and `DSH_TARGET_ARCH` selects `x64|arm64`.
 
-## 自动构建（GitHub Actions）
+Cross-building Windows targets on macOS/Linux usually requires Wine and is unreliable. Build Windows installers on Windows, as the CI workflows do.
 
-三个平台各有独立的 CI 工作流，在 **tag（`v*`）推送**时于对应 runner 上构建并把安装包挂到 Release：
+## Development
 
-- [`.github/workflows/build-windows-app.yml`](../../.github/workflows/build-windows-app.yml) — Windows（NSIS + portable）
-- [`.github/workflows/build-linux-app.yml`](../../.github/workflows/build-linux-app.yml) — Linux（AppImage）
-- [`.github/workflows/build-macos-app.yml`](../../.github/workflows/build-macos-app.yml) — macOS（zip）
+Each platform has a CI workflow that builds on its matching runner when a `v*` tag is pushed and attaches installers to the Release:
 
-`check-npm-updates` 定时任务检测到新版本时会同时触发以上三者。
+- [`.github/workflows/build-windows-app.yml`](../../.github/workflows/build-windows-app.yml) — Windows (NSIS and portable).
+- [`.github/workflows/build-linux-app.yml`](../../.github/workflows/build-linux-app.yml) — Linux (AppImage).
+- [`.github/workflows/build-macos-app.yml`](../../.github/workflows/build-macos-app.yml) — macOS (zip).
 
-桌面安装包使用独立、单调递增的 `DESKTOP_VERSION`；`DSH_VERSION` 只选择内置运行时。因此每次发布新的桌面安装包都会生成更高的更新版本，Windows 安装版可由 `electron-updater` 自动下载并在重启时安装。
+The scheduled `check-npm-updates` workflow triggers all three when it detects a new version.
 
-## 行为
+Desktop installers use an independent, monotonically increasing `DESKTOP_VERSION`; `DSH_VERSION` selects the bundled runtime only. Every new desktop installer release therefore has a higher update version. The installed Windows app uses `electron-updater` to download updates and install them on restart.
 
-与 macOS 壳一致：
+## Behavior
 
-- 服务器随 App 启动/退出；端口 `--port 0` 由系统分配；桌面启动传入 `--no-open`，不会额外打开系统浏览器；就绪信号为 stdout 的 `dsh web: http://127.0.0.1:<port>`。
-- 数据目录：`%APPDATA%\DeepSeek Harness\dsh`（Windows）／`~/Library/Application Support/DeepSeek Harness/dsh`（macOS）／`~/.config/DeepSeek Harness/dsh`（Linux），与终端版隔离。
-- 退出时向服务器发 SIGTERM（POSIX 优雅退出；Windows 上为终止进程）。
+As with the macOS shell:
 
-## 备注
+- The server starts and stops with the app. `--port 0` lets the operating system allocate a port; `--no-open` prevents an extra system-browser window. The stdout readiness line is `dsh web: http://127.0.0.1:<port>`.
+- Data lives in `%APPDATA%\DeepSeek Harness\dsh` (Windows), `~/Library/Application Support/DeepSeek Harness/dsh` (macOS), or `~/.config/DeepSeek Harness/dsh` (Linux), separately from the terminal version.
+- Exit sends SIGTERM to the server: graceful shutdown on POSIX, process termination on Windows.
 
-- Windows、macOS、Linux 均使用 `build/icon.png` 作为应用图标；electron-builder 会按目标平台生成对应图标资源，不再回退到 Electron/Tauri 默认图标。
-- 安装包未签名；Windows 首次运行可能触发 SmartScreen 提示。
+## Limitations and verification
+
+- All three platforms use `build/icon.png`; electron-builder generates the target platform's icon resources instead of using the default Electron/Tauri icon.
+- Installers are unsigned. First launch on Windows may trigger SmartScreen.

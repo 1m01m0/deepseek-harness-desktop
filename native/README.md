@@ -1,8 +1,12 @@
-# native/
+# Native components
 
 English | [中文](README.zh.md)
 
 Native source and public packages maintained with DeepSeek Harness. The [`landlock-run/` workspace](landlock-run/README.md) owns the Landlock self-restrict-then-exec launcher consumed by the harness, including its architecture, three-package npm family, platform support, development workflow, and [release procedure](landlock-run/docs/release.md).
+
+## Desktop applications
+
+[`mac-app`](mac-app/README.md) packages the Web UI as a macOS AppKit application. [`electron`](electron/README.md) provides the cross-platform shell used for Windows and Linux releases. Each directory documents its build commands, configuration, application data location, and release limitations. Download installers from the [desktop releases](https://github.com/1m01m0/deepseek-harness-desktop/releases).
 
 ## Workspace and release boundary
 

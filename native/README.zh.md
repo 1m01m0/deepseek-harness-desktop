@@ -1,8 +1,12 @@
-# native/
+# 原生组件
 
 [English](README.md) | 中文
 
 与 DeepSeek Harness 一同维护的原生源码和公开包。[`landlock-run/` workspace](landlock-run/README.md) 负责 harness 使用的 Landlock 自限后执行启动器，包括其架构、由三个包组成的 npm 包家族、平台支持、开发工作流和[发布流程](landlock-run/docs/release.md)。
+
+## 桌面应用
+
+[`mac-app`](mac-app/README.md) 将 Web UI 打包为 macOS AppKit 应用。[`electron`](electron/README.md) 提供用于 Windows 和 Linux 发布的跨平台桌面壳。各目录分别记录构建命令、配置、应用数据位置和发布限制。安装包见[桌面版本发布页](https://github.com/1m01m0/deepseek-harness-desktop/releases)。
 
 ## Workspace 与发布边界
 
