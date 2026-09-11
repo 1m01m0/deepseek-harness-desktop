@@ -51,6 +51,7 @@ cp "$NODE_DIR/bin/node" "$APP_DIR/Contents/Resources/runtime/node/bin/node"
 echo "==> 2/7 Stage dsh runtime (v$DSH_VERSION)"
 npm install --prefix "$STAGING/dsh" --no-audit --no-fund "@deepseek-ai/dsh@$DSH_VERSION"
 "$NODE_DIR/bin/node" "$ROOT/native/patch-dsh-runtime.cjs" "$STAGING/dsh/node_modules"
+"$NODE_DIR/bin/node" "$ROOT/native/verify-dsh-runtime.cjs" "$STAGING/dsh/node_modules"
 DSH_BIN="$STAGING/dsh/node_modules/@deepseek-ai/dsh/lib/bin.js"
 test -f "$DSH_BIN" || { echo "dsh bin missing after install"; exit 1; }
 
@@ -62,31 +63,10 @@ tar -xf "$STAGING/Sparkle.tar.xz" -C "$STAGING"
 test -d "$STAGING/Sparkle.framework" || { echo "Sparkle framework missing"; exit 1; }
 
 echo "==> 4/7 Validate the runtime boots the web profile"
-VAL_HOME="$(mktemp -d)"
-VAL_LOG="$STAGING/validate.log"
-DSH_HOME="$VAL_HOME" DSH_TELEMETRY_DISABLED=1 \
-  "$NODE_DIR/bin/node" "$DSH_BIN" web --port 0 --no-open >"$VAL_LOG" 2>&1 &
-VAL_PID=$!
-PORT=""
-for _ in $(seq 1 150); do
-  PORT="$(grep -oE 'http://127\.0\.0\.1:[0-9]+' "$VAL_LOG" 2>/dev/null | grep -oE '[0-9]+$' | head -1 || true)"
-  [ -n "$PORT" ] && break
-  kill -0 "$VAL_PID" 2>/dev/null || { echo "server exited during validation"; tail -50 "$VAL_LOG"; exit 1; }
-  sleep 1
-done
-if [ -z "$PORT" ]; then
-  echo "timed out waiting for readiness"; tail -80 "$VAL_LOG"; exit 1
-fi
-HTTP_CODE="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/")"
-TITLE="$(curl -s "http://127.0.0.1:$PORT/" | grep -oE '<title>[^<]*</title>' | head -1 || true)"
-echo "    ok: port=$PORT http=$HTTP_CODE $TITLE"
-[ "$HTTP_CODE" = "200" ] || { echo "unexpected HTTP $HTTP_CODE"; exit 1; }
-kill -TERM "$VAL_PID" 2>/dev/null || true
-wait "$VAL_PID" 2>/dev/null || true
-rm -rf "$VAL_HOME"
+"$NODE_DIR/bin/node" "$ROOT/native/validate-web-runtime.cjs" "$NODE_DIR/bin/node" "$DSH_BIN"
 
 echo "==> 5/7 Compile the Swift shell"
-swiftc -O "$MAC_DIR/main.swift" \
+swiftc -O "$MAC_DIR/main.swift" "$MAC_DIR/ServerURL.swift" \
   -F "$STAGING" -framework Sparkle \
   -framework AppKit -framework WebKit \
   -Xlinker -rpath -Xlinker "@executable_path/../Frameworks" \

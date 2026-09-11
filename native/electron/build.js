@@ -11,10 +11,11 @@
 //      DSH_TARGET_PLATFORM (win32|darwin|linux), DSH_TARGET_ARCH (x64|arm64).
 'use strict'
 
-const { spawn, spawnSync } = require('child_process')
+const { spawnSync } = require('child_process')
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
+const { validateWebRuntime } = require('../validate-web-runtime.cjs')
 
 const DIR = __dirname
 const STAGING = path.join(DIR, '.staging')
@@ -71,43 +72,6 @@ async function download(url, dest) {
   console.log(`  -> ${dest} (${(buf.length / 1e6).toFixed(1)} MB)`)
 }
 
-async function validate(nodeBin, dshBin) {
-  console.log('validating dsh web boot...')
-  const env = {
-    ...process.env,
-    DSH_HOME: path.join(STAGING, 'val-home'),
-    DSH_TELEMETRY_DISABLED: '1',
-  }
-  const proc = spawn(nodeBin, [dshBin, 'web', '--port', '0', '--no-open'], {
-    env,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
-
-  let out = ''
-  let settled = false
-  const port = await new Promise((resolve, reject) => {
-    const finish = (fn, value) => {
-      if (settled) return
-      settled = true
-      clearTimeout(timer)
-      fn(value)
-    }
-    const timer = setTimeout(() => finish(reject, new Error('readiness timeout')), 90000)
-    const check = () => {
-      const m = out.match(/http:\/\/127\.0\.0\.1:(\d+)/)
-      if (m) finish(resolve, m[1])
-    }
-    proc.stdout.on('data', (d) => { out += d; check() })
-    proc.stderr.on('data', (d) => { out += d; check() })
-    proc.on('exit', (c) => finish(reject, new Error(`server exited ${c}: ${out.slice(-500)}`)))
-  })
-
-  const res = await fetch(`http://127.0.0.1:${port}/`)
-  console.log(`  ok: port=${port} http=${res.status}`)
-  proc.kill('SIGTERM')
-  if (res.status !== 200) throw new Error(`unexpected HTTP ${res.status}`)
-}
-
 async function main() {
   fs.rmSync(STAGING, { recursive: true, force: true })
   fs.mkdirSync(STAGING, { recursive: true })
@@ -156,11 +120,12 @@ async function main() {
   const dshDir = path.join(STAGING, 'dsh')
   run(npmCmd, ['install', '--prefix', dshDir, '--no-audit', '--no-fund', `@deepseek-ai/dsh@${DSH_VERSION}`])
   run(process.execPath, [path.join(DIR, '..', 'patch-dsh-runtime.cjs'), path.join(dshDir, 'node_modules')])
+  run(process.execPath, [path.join(DIR, '..', 'verify-dsh-runtime.cjs'), path.join(dshDir, 'node_modules')])
   const dshBin = path.join(dshDir, 'node_modules', '@deepseek-ai', 'dsh', 'lib', 'bin.js')
   if (!fs.existsSync(dshBin)) throw new Error('dsh bin missing after install')
 
   // 3. validate the runtime boots
-  await validate(nodeSrcBin, dshBin)
+  await validateWebRuntime(nodeSrcBin, dshBin)
 
   // 4. package; publish artifacts + update feeds (latest.yml / latest-mac.yml).
   //    DSH_PUBLISH lets a workflow handle release uploads separately.

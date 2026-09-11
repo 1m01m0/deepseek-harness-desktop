@@ -7,10 +7,16 @@ const { app, BrowserWindow, shell, Menu, dialog } = require('electron')
 const { spawn } = require('child_process')
 const path = require('path')
 const fs = require('fs')
+const { parseReadyUrl } = require('./ready-url.cjs')
 
 let win = null
 let serverProc = null
-let readyPort = null
+let readyUrl = null
+let serverRestart = null
+let updateMenuItem = null
+let updateTimer = null
+const UPDATE_INTERVAL = 15 * 60 * 1000
+const updateState = { check: null, manual: false, lastCheck: 0, downloading: false, downloaded: null }
 
 const REPO = '1m01m0/deepseek-harness-desktop'
 const RELEASES_URL = 'https://github.com/1m01m0/deepseek-harness-desktop/releases/latest'
@@ -126,27 +132,75 @@ function setupAutoUpdater() {
   autoUpdater.autoInstallOnAppQuit = true
 
   autoUpdater.on('update-downloaded', (info) => {
-    if (!win || win.isDestroyed()) return
-    dialog.showMessageBox(win, {
-      type: 'info',
-      title: '更新已就绪',
-      message: '新版本 ' + (info && info.version ? info.version : '') + ' 已下载完成。',
-      detail: '重启应用即可完成更新。',
-      buttons: ['立即重启', '稍后'],
-      defaultId: 0,
-      cancelId: 1,
-    }).then(({ response }) => {
-      if (response === 0) autoUpdater.quitAndInstall()
-    }).catch(() => {})
+    updateState.downloading = false
+    updateState.downloaded = info
+    showDownloadedUpdate()
   })
+  autoUpdater.on('update-available', (info) => {
+    updateState.downloading = true
+    reportManualUpdate('发现新版本', `新版本 ${info.version} 正在后台下载，完成后会提示安装。`)
+  })
+  autoUpdater.on('update-not-available', () => {
+    reportManualUpdate('检查更新', `当前已是最新版本（${app.getVersion()}）。`)
+  })
+  autoUpdater.on('error', updateError)
 
-  autoUpdater.on('error', (err) => {
-    console.error('autoUpdater error:', err)
-  })
+  runUpdateCheck()
+  updateTimer = setInterval(() => runUpdateCheck(), UPDATE_INTERVAL)
+  app.on('browser-window-focus', () => runUpdateCheck())
+}
 
-  autoUpdater.checkForUpdatesAndNotify().catch((err) => {
-    console.error('update check failed:', err)
-  })
+function reportManualUpdate(title, message, type = 'info') {
+  if (!updateState.manual) return
+  updateState.manual = false
+  if (win && !win.isDestroyed()) dialog.showMessageBox(win, { type, title, message, buttons: ['好'] }).catch(() => {})
+}
+
+function updateError(error) {
+  updateState.downloading = false
+  console.error('update check failed:', error)
+  reportManualUpdate('检查更新失败', '无法获取或下载更新：' + error.message, 'error')
+}
+
+function showDownloadedUpdate() {
+  if (!win || win.isDestroyed()) return
+  dialog.showMessageBox(win, {
+    type: 'info', title: '更新已就绪',
+    message: `新版本 ${updateState.downloaded.version} 已下载完成。`,
+    detail: '重启应用即可完成更新。',
+    buttons: ['立即重启', '稍后'], defaultId: 0, cancelId: 1,
+  }).then(({ response }) => {
+    if (response === 0) require('electron-updater').autoUpdater.quitAndInstall()
+  }).catch(() => {})
+}
+
+function runUpdateCheck(manual = false) {
+  if (updateState.downloaded) {
+    if (manual) showDownloadedUpdate()
+    return
+  }
+  if (manual) updateState.manual = true
+  if (updateState.downloading) {
+    reportManualUpdate('正在下载更新', '新版本正在后台下载，完成后会提示安装。')
+    return
+  }
+  if (updateState.check) return updateState.check
+  if (!manual && Date.now() - updateState.lastCheck < UPDATE_INTERVAL) return
+  updateState.lastCheck = Date.now()
+  if (updateMenuItem) {
+    updateMenuItem.label = '正在检查更新…'
+    updateMenuItem.enabled = false
+  }
+  // Store the promise before invoking the updater, which can emit synchronously.
+  updateState.check = Promise.resolve().then(() => require('electron-updater').autoUpdater.checkForUpdates())
+    .catch(updateError).finally(() => {
+      updateState.check = null
+      if (updateMenuItem) {
+        updateMenuItem.label = '检查更新…'
+        updateMenuItem.enabled = true
+      }
+    })
+  return updateState.check
 }
 
 function checkForUpdates() {
@@ -155,7 +209,7 @@ function checkForUpdates() {
     return
   }
   if (isPortable()) {
-    dialog.showMessageBoxSync(win, {
+    const choice = dialog.showMessageBoxSync(win, {
       type: 'info',
       title: '检查更新',
       message: '便携版不支持自动更新。',
@@ -164,12 +218,10 @@ function checkForUpdates() {
       defaultId: 0,
       cancelId: 1,
     })
+    if (choice === 0) shell.openExternal(RELEASES_URL)
     return
   }
-  const { autoUpdater } = require('electron-updater')
-  autoUpdater.checkForUpdates().catch((err) => {
-    console.error('update check failed:', err)
-  })
+  return runUpdateCheck(true)
 }
 
 function buildMenu() {
@@ -181,7 +233,7 @@ function buildMenu() {
       submenu: [
         { role: 'about', label: '关于 DeepSeek Harness' },
         { type: 'separator' },
-        { label: '检查更新…', click: () => checkForUpdates() },
+        { id: 'check-updates', label: '检查更新…', click: () => checkForUpdates() },
         { type: 'separator' },
         { role: 'quit', label: '退出 DeepSeek Harness' },
       ],
@@ -205,12 +257,14 @@ function buildMenu() {
     template.push({
       label: '帮助',
       submenu: [
-        { label: '检查更新…', click: () => checkForUpdates() },
+        { id: 'check-updates', label: '检查更新…', click: () => checkForUpdates() },
       ],
     })
   }
 
-  Menu.setApplicationMenu(Menu.buildFromTemplate(template))
+  const menu = Menu.buildFromTemplate(template)
+  updateMenuItem = menu.getMenuItemById('check-updates')
+  Menu.setApplicationMenu(menu)
 }
 
 function pageHtml(inner) {
@@ -250,12 +304,12 @@ function loadError(message) {
 }
 
 function loadServer() {
-  win.loadURL(`http://127.0.0.1:${readyPort}/`)
+  win.loadURL(readyUrl)
 }
 
 function startServer() {
   if (serverProc) return
-  readyPort = null
+  readyUrl = null
   loadSplash('正在启动 DeepSeek Harness…')
 
   try {
@@ -284,46 +338,78 @@ function startServer() {
     env,
     stdio: ['ignore', 'pipe', 'pipe'],
   })
+  serverProc = proc
+  const timer = setTimeout(() => {
+    if (serverProc === proc && readyUrl === null) {
+      loadError('启动超时（60 秒内未就绪）。')
+    }
+  }, 60000)
 
   let buffer = ''
   const onData = (chunk) => {
-    buffer += chunk.toString()
-    const match = buffer.match(/http:\/\/127\.0\.0\.1:(\d+)/)
-    if (match && readyPort === null) {
-      readyPort = parseInt(match[1], 10)
+    if (serverProc !== proc || readyUrl !== null) return
+    buffer = (buffer + chunk.toString()).slice(-65536)
+    const url = parseReadyUrl(buffer)
+    if (url && readyUrl === null) {
+      clearTimeout(timer)
+      readyUrl = url
+      buffer = ''
       loadServer()
     }
   }
   proc.stdout.on('data', onData)
   proc.stderr.on('data', onData)
-
-  proc.on('exit', (code) => {
+  proc.on('error', (error) => {
+    clearTimeout(timer)
     if (serverProc !== proc) return
     serverProc = null
-    const hadServed = readyPort !== null
-    readyPort = null
+    readyUrl = null
+    loadError(`无法启动服务：${error.message}`)
+  })
+
+  proc.on('exit', (code) => {
+    clearTimeout(timer)
+    if (serverProc !== proc) return
+    serverProc = null
+    const hadServed = readyUrl !== null
+    readyUrl = null
     if (hadServed) loadError(`DeepSeek Harness 服务已停止（退出码 ${code}）。`)
     else loadError(`DeepSeek Harness 服务启动失败（退出码 ${code}）。`)
   })
-
-  serverProc = proc
-
-  setTimeout(() => {
-    if (serverProc === proc && readyPort === null) {
-      loadError('启动超时（60 秒内未就绪）。')
-    }
-  }, 60000)
 }
 
-function stopServer() {
+async function stopServer() {
   if (!serverProc) return
-  // SIGTERM gives dsh a clean teardown on POSIX; on Windows this terminates the process.
-  serverProc.kill('SIGTERM')
+  const proc = serverProc
   serverProc = null
+  readyUrl = null
+  if (proc.exitCode !== null || proc.signalCode !== null) return
+  await new Promise((resolve) => {
+    const timer = setTimeout(() => proc.kill('SIGKILL'), 5000)
+    timer.unref()
+    proc.once('exit', () => { clearTimeout(timer); resolve() })
+    // SIGTERM gives dsh a clean teardown on POSIX; Windows terminates it.
+    proc.kill('SIGTERM')
+  })
+}
+
+function restartServer() {
+  if (serverRestart) return serverRestart
+  serverRestart = stopServer().then(startServer).catch((error) => {
+    loadError(`无法重新启动服务：${error.message}`)
+  }).finally(() => { serverRestart = null })
+  return serverRestart
 }
 
 function isLocal(url) {
-  return /^https?:\/\/(127\.0\.0\.1|localhost)\b/.test(url)
+  try {
+    const parsed = new URL(url)
+    return ['http:', 'https:'].includes(parsed.protocol)
+      && ['127.0.0.1', 'localhost'].includes(parsed.hostname)
+      && !parsed.username && !parsed.password
+  } catch {
+    return false
+  }
 }
 
 app.whenReady().then(() => {
@@ -346,9 +432,9 @@ app.whenReady().then(() => {
     return { action: 'deny' }
   })
   win.webContents.on('will-navigate', (event, url) => {
-    if (url.startsWith('dsh://retry')) {
+    if (url === 'dsh://retry' || url === 'dsh://retry/') {
       event.preventDefault()
-      startServer()
+      restartServer()
       return
     }
     if (/^https?:/.test(url) && !isLocal(url)) {
@@ -368,5 +454,6 @@ app.on('window-all-closed', () => {
 })
 
 app.on('will-quit', () => {
+  clearInterval(updateTimer)
   stopServer()
 })

@@ -12,6 +12,17 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_call:
+    inputs:
+      dsh_version:
+        type: string
+        required: true
+      desktop_version:
+        type: string
+        required: true
+      build_ref:
+        type: string
+        required: true
   workflow_dispatch:
     inputs:
       dsh_version:
@@ -26,6 +37,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: build-linux-app
+  cancel-in-progress: false
+
 jobs:
   build:
     name: Build Linux app
@@ -34,10 +49,15 @@ jobs:
       NODE_OPTIONS: --max-old-space-size=4096
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.build_ref || github.sha }}
 
       - uses: actions/setup-node@v7.0.0
         with:
           node-version: 24
+
+      - name: Test desktop boundaries
+        run: node --test native/tests/*.test.cjs
 
       - name: Install electron + electron-builder
         working-directory: native/electron
@@ -46,9 +66,10 @@ jobs:
       - name: Build and publish the app
         working-directory: native/electron
         env:
-          DSH_VERSION: ${{ github.event.inputs.dsh_version }}
-          DESKTOP_VERSION: ${{ github.event.inputs.desktop_version }}
+          DSH_VERSION: ${{ inputs.dsh_version }}
+          DESKTOP_VERSION: ${{ inputs.desktop_version }}
           DSH_TARGET_PLATFORM: linux
+          DSH_PUBLISH: never
           GH_TOKEN: ${{ github.token }}
         run: node build.js
 
@@ -64,13 +85,21 @@ jobs:
         run: |
           if [ "${{ github.ref_type }}" = "tag" ]; then
             echo "tag_name=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
-          elif [ -n "${{ github.event.inputs.desktop_version }}" ]; then
-            echo "tag_name=v${{ github.event.inputs.desktop_version }}" >> "$GITHUB_OUTPUT"
-          elif [ -n "${{ github.event.inputs.dsh_version }}" ]; then
+          elif [ -n "${{ inputs.desktop_version }}" ]; then
+            echo "tag_name=v${{ inputs.desktop_version }}" >> "$GITHUB_OUTPUT"
+          elif [ -n "${{ inputs.dsh_version }}" ]; then
             echo "tag_name=v$(tr -d '[:space:]' < native/mac-app/DESKTOP_VERSION)" >> "$GITHUB_OUTPUT"
           else
             echo "tag_name=" >> "$GITHUB_OUTPUT"
           fi
 
-      # electron-builder --publish always uploads the AppImage and the update
-      # feed; the Linux shell checks the GitHub API and opens the download page.
+      - name: Upload Linux assets
+        if: steps.tag.outputs.tag_name != ''
+        uses: softprops/action-gh-release@v3.0.2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag_name }}
+          target_commitish: ${{ inputs.build_ref || github.sha }}
+          fail_on_unmatched_files: true
+          files: |
+            native/electron/dist/*.AppImage
+            native/electron/dist/latest-linux.yml

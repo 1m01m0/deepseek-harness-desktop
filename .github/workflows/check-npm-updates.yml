@@ -1,174 +1,120 @@
-# Check npm for a newer @deepseek-ai/dsh release and, when one exists, trigger
-# all platform builds so a fresh installer lands in a new desktop-version
-# release. The desktop version advances independently from the dsh runtime.
-# Do not rely on npm's `latest` dist-tag: prereleases such as rc.8 can already
-# be published while that tag still points at the previous rc. Compare the
-# highest published SemVer instead.
-# The workflow_run trigger closes the loop immediately after a successful
-# upstream sync; the schedule and manual trigger remain available as fallbacks.
+# A target pin is not proof of a release. Reconcile missing installers/feeds on
+# every run, and wait for the reusable platform workflows before reporting success.
 name: check-npm-updates
 
 on:
   schedule:
-    - cron: '17 9 * * *'   # daily 09:17 UTC
+    - cron: '17 9 * * *'
   workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - 'native/**'
+      - '.github/workflows/build-*-app.yml'
+      - '.github/workflows/check-npm-updates.yml'
   workflow_run:
     workflows: [sync-upstream]
     types: [completed]
 
 permissions:
   contents: write
-  actions: write
 
 concurrency:
   group: check-npm-updates
   cancel-in-progress: false
 
 jobs:
-  check:
-    name: Check for npm update
-    # A failed upstream merge must not start a package check/build chain.
+  plan:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     outputs:
-      latest: ${{ steps.check.outputs.latest }}
-      has_update: ${{ steps.check.outputs.has_update }}
+      build: ${{ steps.plan.outputs.build }}
+      runtime: ${{ steps.plan.outputs.runtime }}
+      desktop: ${{ steps.plan.outputs.desktop }}
+      ref: ${{ steps.pin.outputs.ref }}
     steps:
       - uses: actions/checkout@v7.0.1
-
-      - id: check
-        name: Compare highest npm version vs pinned version
+        with:
+          ref: master
+          fetch-depth: 0
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+      - name: Test desktop boundaries
+        run: node --test native/tests/*.test.cjs
+      - name: Reconcile registry and published assets
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PACKAGING_CHANGED: ${{ github.event_name == 'push' }}
+        run: node native/release-plan.cjs
+      - name: Record target versions
+        id: pin
+        env:
+          RUNTIME: ${{ steps.plan.outputs.runtime }}
+          DESKTOP: ${{ steps.plan.outputs.desktop }}
         run: |
           set -euo pipefail
-          pinned="$(tr -d '[:space:]' < native/mac-app/DSH_VERSION)"
-          metadata="$(mktemp)"
-          trap 'rm -f "$metadata"' EXIT
-          curl -fsSL https://registry.npmjs.org/@deepseek-ai/dsh -o "$metadata"
-
-          # npm can publish a prerelease without moving the `latest` dist-tag.
-          # Resolve the highest valid SemVer and compare precedence rather than
-          # treating any string mismatch as an update (which could downgrade a
-          # manually pinned version).
-          result="$(PINNED="$pinned" python3 - "$metadata" <<'PY'
-          import json
-          import os
-          import re
-          import sys
-
-          semver = re.compile(
-              r"^(?P<major>0|[1-9][0-9]*)\."
-              r"(?P<minor>0|[1-9][0-9]*)\."
-              r"(?P<patch>0|[1-9][0-9]*)"
-              r"(?:-(?P<pre>[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?"
-              r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$"
-          )
-
-          def key(version):
-              match = semver.fullmatch(version.lstrip("v"))
-              if not match:
-                  return None
-              core = tuple(int(match.group(name)) for name in ("major", "minor", "patch"))
-              pre = match.group("pre")
-              if pre is None:
-                  # A stable release has higher precedence than any prerelease.
-                  return core + ((1, ()),)
-              fields = []
-              for field in pre.split("."):
-                  if field.isdigit():
-                      fields.append((0, int(field)))
-                  else:
-                      fields.append((1, field))
-              return core + ((0, tuple(fields)),)
-
-          with open(sys.argv[1], encoding="utf-8") as handle:
-              metadata = json.load(handle)
-          versions = [version for version in metadata.get("versions", {}) if key(version) is not None]
-          if not versions:
-              raise SystemExit("npm returned no valid @deepseek-ai/dsh versions")
-          latest = max(versions, key=key)
-          pinned = os.environ["PINNED"]
-          pinned_key = key(pinned)
-          if pinned_key is None:
-              raise SystemExit(f"invalid pinned DSH_VERSION: {pinned}")
-          print(f"{latest}\t{key(latest) > pinned_key}")
-          PY
-          )"
-          latest="${result%%$'\t'*}"
-          has_update="${result#*$'\t'}"
-          test -n "$latest" || { echo "npm returned an empty version"; exit 1; }
-          echo "latest=$latest" >> "$GITHUB_OUTPUT"
-          echo "pinned=$pinned"
-          if [ "$has_update" = "True" ]; then
-            echo "has_update=true" >> "$GITHUB_OUTPUT"
-            echo "update available: $pinned -> $latest"
-          else
-            echo "has_update=false" >> "$GITHUB_OUTPUT"
-            echo "up to date or pinned version is newer ($pinned; registry max $latest)"
+          printf '%s\n' "$RUNTIME" > native/mac-app/DSH_VERSION
+          printf '%s\n' "$DESKTOP" > native/mac-app/DESKTOP_VERSION
+          if ! git diff --quiet -- native/mac-app/DSH_VERSION native/mac-app/DESKTOP_VERSION; then
+            git config user.name github-actions
+            git config user.email actions@github.com
+            git add native/mac-app/DSH_VERSION native/mac-app/DESKTOP_VERSION
+            git commit -m "chore: target desktop $DESKTOP (dsh $RUNTIME)"
+            # A concurrent source change must be reviewed by the next run,
+            # never silently overwrite or publish against the wrong revision.
+            git push origin HEAD:master
           fi
+          echo "ref=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-  trigger-build:
-    name: Bump pin and trigger builds
-    needs: check
-    if: needs.check.outputs.has_update == 'true'
+  macos:
+    needs: plan
+    if: needs.plan.outputs.build == 'true'
+    uses: ./.github/workflows/build-macos-app.yml
+    with:
+      dsh_version: ${{ needs.plan.outputs.runtime }}
+      desktop_version: ${{ needs.plan.outputs.desktop }}
+      build_ref: ${{ needs.plan.outputs.ref }}
+    secrets:
+      SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+
+  windows:
+    needs: plan
+    if: needs.plan.outputs.build == 'true'
+    uses: ./.github/workflows/build-windows-app.yml
+    with:
+      dsh_version: ${{ needs.plan.outputs.runtime }}
+      desktop_version: ${{ needs.plan.outputs.desktop }}
+      build_ref: ${{ needs.plan.outputs.ref }}
+
+  linux:
+    needs: plan
+    if: needs.plan.outputs.build == 'true'
+    uses: ./.github/workflows/build-linux-app.yml
+    with:
+      dsh_version: ${{ needs.plan.outputs.runtime }}
+      desktop_version: ${{ needs.plan.outputs.desktop }}
+      build_ref: ${{ needs.plan.outputs.ref }}
+
+  verify:
+    needs: [plan, macos, windows, linux]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7.0.1
         with:
-          fetch-depth: 0
-
-      - name: Bump runtime pin and desktop package version
-        id: bump
-        env:
-          NEXT_VERSION: ${{ needs.check.outputs.latest }}
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
-          echo "pushed=false" >> "$GITHUB_OUTPUT"
-
-          # Rebase on the latest master before each attempt. This makes the
-          # scheduled check safe to run next to a sync-upstream completion.
-          for attempt in 1 2 3; do
-            git fetch origin master
-            git checkout -B master origin/master
-            current_desktop="$(tr -d '[:space:]' < native/mac-app/DESKTOP_VERSION)"
-            if [[ ! "$current_desktop" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
-              echo "invalid DESKTOP_VERSION: $current_desktop"
-              exit 1
-            fi
-            next_desktop="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.$((10#${BASH_REMATCH[3]} + 1))"
-            printf '%s\n' "$NEXT_VERSION" > native/mac-app/DSH_VERSION
-            printf '%s\n' "$next_desktop" > native/mac-app/DESKTOP_VERSION
-            if git diff --quiet -- native/mac-app/DSH_VERSION native/mac-app/DESKTOP_VERSION; then
-              echo "pin already at $NEXT_VERSION; no build dispatch needed"
-              exit 0
-            fi
-            git add native/mac-app/DSH_VERSION native/mac-app/DESKTOP_VERSION
-            git commit -m "chore: bump desktop package to $next_desktop"
-            if git push origin HEAD:master; then
-              echo "pushed DSH_VERSION=$NEXT_VERSION DESKTOP_VERSION=$next_desktop"
-              echo "desktop_version=$next_desktop" >> "$GITHUB_OUTPUT"
-              printf '%s\n' "pushed=true" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-            if [ "$attempt" -eq 3 ]; then
-              echo "could not push DSH_VERSION after $attempt attempts"
-              exit 1
-            fi
-            echo "push race; retrying ($attempt/3)"
-            sleep 2
-          done
-
-      - name: Trigger macOS / Windows / Linux builds
-        if: steps.bump.outputs.pushed == 'true'
+          ref: ${{ needs.plan.outputs.ref }}
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: 24
+      - name: Verify published assets and update feeds
         env:
           GH_TOKEN: ${{ github.token }}
+          DESKTOP: ${{ needs.plan.outputs.desktop }}
         run: |
-          set -euo pipefail
-          for wf in build-macos-app build-windows-app build-linux-app; do
-            gh workflow run "$wf.yml" \
-              -R "${{ github.repository }}" \
-              -f dsh_version="${{ needs.check.outputs.latest }}" \
-              -f desktop_version="${{ steps.bump.outputs.desktop_version }}"
+          # Allow bounded propagation time for GitHub Pages and release assets.
+          for attempt in 1 2 3 4 5 6; do
+            node native/release-plan.cjs --verify "$DESKTOP" && exit 0
+            sleep 10
           done
-          echo "triggered all three platform builds for desktop ${{ steps.bump.outputs.desktop_version }} with dsh ${{ needs.check.outputs.latest }}"
+          exit 1

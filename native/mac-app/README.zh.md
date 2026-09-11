@@ -41,15 +41,18 @@ open "dist/DeepSeek Harness.app"
 - 数据目录：`~/Library/Application Support/DeepSeek Harness/dsh`（即 `DSH_HOME`），与终端版 `~/.dsh` 隔离；`DSH_TELEMETRY_DISABLED=1`。
 - 首次启动在该目录写入 profiles/settings/storages；模型 API 密钥在 App 内配置。
 - 外部链接（非 `127.0.0.1`/`localhost` 的 http/https）用系统默认浏览器打开。
+- 新版 DSH 就绪行包含 `/?token=...`；壳会等待整行接收完并保留认证参数，让 WKWebView 完成 Cookie 交换。不会关闭认证或额外打开浏览器。
+- Sparkle 默认每小时检查并后台下载、安装更新；安装可能需要退出应用或用户授权，不强制中断当前会话。已有用户明确设置的更新偏好仍有效，不会在每次启动时强制覆盖。
 
 ## 开发
 
 [`.github/workflows/build-macos-app.yml`](../../.github/workflows/build-macos-app.yml) 在推送 `v*` tag 时于 macOS runner 上构建，并将 `DeepSeek-Harness-<version>-macos-arm64.zip` 附加到 Release。不带版本参数的 `workflow_dispatch` 仅构建并上传 artifact；传入 `desktop_version` 或 `dsh_version` 时还会发布 Release。
 
-[`.github/workflows/check-npm-updates.yml`](../../.github/workflows/check-npm-updates.yml) 每天检查一次 `@deepseek-ai/dsh` 在 npm 的最新版本，若高于 `DSH_VERSION` 文件里记录的版本，就递增 `DESKTOP_VERSION` 并自动触发 `build-macos-app`，生成新的 `v<桌面版本>` Release 安装包。只要桌面版本提高，Sparkle 就会提供更新，即使 dsh 运行时未变化。
+[`.github/workflows/check-npm-updates.yml`](../../.github/workflows/check-npm-updates.yml) 每天检查 npm，也在桌面代码推送到 master 时运行。新版运行时或已发布安装包的代码变化会递增 `DESKTOP_VERSION`。工作流等待三平台构建并核验安装包及更新清单；缺失或不完整的发布在下次运行重试，而不把版本 pin 当作发布成功。桌面版本与内置 DSH 版本独立，因此打包修复也可以更新。
 
 ## 限制与验证
 
-- 构建脚本第 3 步会先用打包进去的 Node + npm 运行时真启动一次 `dsh web --no-open` 并请求首页做预校验，通过后才组装 App。
+- 构建先用真实 Loader 验证实际 npm 包的模型图片能力和接口元数据，再启动内置 Node + DSH，通过令牌换取 Cookie（若运行时要求认证）并请求首页，成功后才组装 App。未识别的运行时补丁结构会在写入任何包文件前失败。
+- `node --test native/tests/*.test.cjs` 包含原生 Swift 就绪链接解析测试；安装后的 Sparkle 升级和会话保留仍需实机验收。
 - 若官方 npm 运行时的 web 启动失败，可改用本地仓库构建产物作为运行时（用 `scripts/release/pack.ts` 产出的 tarball + `file:` 依赖组装 node_modules）。
 - App 为 **ad-hoc 签名**，本机可直接运行；从 GitHub 下载的 zip 会被 Gatekeeper 拦，需右键 → 打开，或 `xattr -dr com.apple.quarantine <app>`。对外分发建议加 Developer ID 签名 + notarization。

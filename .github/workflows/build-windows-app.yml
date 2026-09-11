@@ -5,20 +5,26 @@
 #
 # Triggers:
 #   - v* tag push: build + attach to the tag's release
-#   - master push touching native/electron: rebuild and refresh the current
-#     desktop-version release automatically (packaging fixes)
+#   - workflow_call: check-npm-updates orchestrates packaging changes on master
 #   - workflow_dispatch: build + artifact; with versions set, also create the
 #     desktop-version release (used by check-npm-updates)
 name: build-windows-app
 
 on:
   push:
-    branches:
-      - master
     tags:
       - 'v*'
-    paths:
-      - 'native/electron/**'
+  workflow_call:
+    inputs:
+      dsh_version:
+        type: string
+        required: true
+      desktop_version:
+        type: string
+        required: true
+      build_ref:
+        type: string
+        required: true
   workflow_dispatch:
     inputs:
       dsh_version:
@@ -35,7 +41,7 @@ permissions:
 
 concurrency:
   group: build-windows-app-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -45,10 +51,15 @@ jobs:
       NODE_OPTIONS: --max-old-space-size=4096
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          ref: ${{ inputs.build_ref || github.sha }}
 
       - uses: actions/setup-node@v7.0.0
         with:
           node-version: 24
+
+      - name: Test desktop boundaries
+        run: node --test native/tests/*.test.cjs
 
       - name: Install electron + electron-builder
         working-directory: native/electron
@@ -57,8 +68,8 @@ jobs:
       - name: Build and publish the app
         working-directory: native/electron
         env:
-          DSH_VERSION: ${{ github.event.inputs.dsh_version }}
-          DESKTOP_VERSION: ${{ github.event.inputs.desktop_version }}
+          DSH_VERSION: ${{ inputs.dsh_version }}
+          DESKTOP_VERSION: ${{ inputs.desktop_version }}
           DSH_TARGET_PLATFORM: win32
           DSH_PUBLISH: never
           GH_TOKEN: ${{ github.token }}
@@ -73,41 +84,27 @@ jobs:
 
       - name: Resolve release tag
         id: tag
-        shell: bash
+        shell: pwsh
         env:
-          DSH_VERSION_INPUT: ${{ github.event.inputs.dsh_version }}
-          DESKTOP_VERSION_INPUT: ${{ github.event.inputs.desktop_version }}
+          DESKTOP_VERSION_INPUT: ${{ inputs.desktop_version }}
         run: |
-          set -euo pipefail
-          if [ "${{ github.ref_type }}" = "tag" ]; then
-            release_tag="${{ github.ref_name }}"
-          else
-            version="${DESKTOP_VERSION_INPUT:-$(tr -d '[:space:]' < native/mac-app/DESKTOP_VERSION)}"
-            release_tag="v${version}"
-          fi
-          echo "tag_name=${release_tag}" >> "$GITHUB_OUTPUT"
-          echo "release tag: ${release_tag}"
+          if ("${{ github.ref_type }}" -eq "tag") {
+            $releaseTag = "${{ github.ref_name }}"
+          } else {
+            $version = $env:DESKTOP_VERSION_INPUT
+            if (!$version) { $version = (Get-Content native/mac-app/DESKTOP_VERSION -Raw).Trim() }
+            $releaseTag = "v$version"
+          }
+          "tag_name=$releaseTag" >> $env:GITHUB_OUTPUT
 
-      # Upload explicitly with --clobber because electron-builder refuses to
-      # replace assets in an existing published release after its age threshold.
-      - name: Ensure Release and upload Windows assets
-        env:
-          GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ steps.tag.outputs.tag_name }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          if ! gh release view "$RELEASE_TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release create "$RELEASE_TAG" \
-              -R "$GITHUB_REPOSITORY" \
-              --target "$GITHUB_SHA" \
-              --title "$RELEASE_TAG" \
-              --generate-notes
-          fi
-          gh release upload "$RELEASE_TAG" \
-            -R "$GITHUB_REPOSITORY" \
-            native/electron/dist/*-setup.exe \
-            native/electron/dist/*-setup.exe.blockmap \
-            native/electron/dist/*-portable.exe \
-            native/electron/dist/latest.yml \
-            --clobber
+      - name: Upload Windows installers and update metadata
+        uses: softprops/action-gh-release@v3.0.2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag_name }}
+          target_commitish: ${{ inputs.build_ref || github.sha }}
+          fail_on_unmatched_files: true
+          files: |
+            native/electron/dist/*-setup.exe
+            native/electron/dist/*-setup.exe.blockmap
+            native/electron/dist/*-portable.exe
+            native/electron/dist/latest.yml

@@ -25,7 +25,8 @@
       "releaseType": "release"
     },
     "files": [
-      "main.js"
+      "main.js",
+      "ready-url.cjs"
     ],
     "extraResources": [
       { "from": ".staging/runtime", "to": "runtime" },

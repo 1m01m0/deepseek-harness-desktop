@@ -7,7 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     private var window: NSWindow!
     private var webView: WKWebView!
     private var serverTask: Process?
-    private var readyPort: Int?
+    private var readyURL: URL?
     private var updater: SPUStandardUpdaterController!
 
     // MARK: - App lifecycle
@@ -128,7 +128,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
 
     private func startServer() {
         guard serverTask == nil else { return }
-        readyPort = nil
+        readyURL = nil
         showSplash("正在启动 DeepSeek Harness…")
 
         do {
@@ -165,8 +165,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.serverTask = nil
-                let hadServed = self.readyPort != nil
-                self.readyPort = nil
+                let hadServed = self.readyURL != nil
+                self.readyURL = nil
                 if hadServed {
                     self.showError("DeepSeek Harness 服务已停止（退出码 \(proc.terminationStatus)）。")
                 } else {
@@ -195,27 +195,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
                 return
             }
             buffer += String(data: data, encoding: .utf8) ?? ""
-            guard let port = Self.parsePort(from: buffer) else { return }
+            buffer = String(buffer.suffix(65536))
+            guard let url = parseServerURL(from: buffer) else { return }
             DispatchQueue.main.async {
-                guard self.serverTask != nil, self.readyPort == nil else { return }
-                self.readyPort = port
+                guard self.serverTask != nil, self.readyURL == nil else { return }
+                self.readyURL = url
                 self.loadServer()
             }
         }
     }
 
-    private static func parsePort(from text: String) -> Int? {
-        guard let range = text.range(of: #"http://127\.0\.0\.1:\d+"#, options: .regularExpression) else {
-            return nil
-        }
-        let match = text[range]
-        guard let portString = match.split(separator: ":").last else { return nil }
-        return Int(portString)
-    }
-
     private func loadServer() {
-        guard let port = readyPort else { return }
-        webView.load(URLRequest(url: URL(string: "http://127.0.0.1:\(port)/")!))
+        guard let url = readyURL else { return }
+        webView.load(URLRequest(url: url))
     }
 
     private func stopServer() {
