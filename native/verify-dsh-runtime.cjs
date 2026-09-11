@@ -22,8 +22,8 @@ async function verifyRuntime(modulesRoot) {
   const baseURL = `http://127.0.0.1:${server.address().port}`
   const config = join(dataDir, 'cordis.yml')
   fs.writeFileSync(config, JSON.stringify([
-    { id: 'llm', name: packageFile('dsh-llm') },
-    { id: 'llm-pi-ai', name: packageFile('dsh-llm-pi-ai'), config: { providers: {
+    { id: 'llm', name: pathToFileURL(packageFile('dsh-llm')).href },
+    { id: 'llm-pi-ai', name: pathToFileURL(packageFile('dsh-llm-pi-ai')).href, config: { providers: {
       'desktop-test': { api: 'openai-completions', baseURL, models: [
         { id: 'gemini-3.7-flash-high' },
         { id: 'gemini-text-only', input: ['text'] },
