@@ -5,11 +5,11 @@
     <link>https://1m01m0.github.io/deepseek-harness-desktop/</link>
     <description>DeepSeek Harness 桌面版自动更新清单</description>
     <item>
-      <title>DeepSeek Harness 0.1.22</title>
-      <pubDate>Fri, 11 Sep 2026 08:12:51 +0000</pubDate>
-      <sparkle:version>0.1.22</sparkle:version>
-      <sparkle:shortVersionString>0.1.22</sparkle:shortVersionString>
-      <enclosure url="https://github.com/1m01m0/deepseek-harness-desktop/releases/download/v0.1.22/DeepSeek-Harness-0.1.22-macos-arm64.zip" sparkle:edSignature="OHEnYlP/wIV4syuSiMbgTrz5qPJtmfwR1fOeQLP+3X9X770GQdlk/BfMYmvjbPOxaBJfzHO4RgfZgUBnVMi/Ag==" length="110719352"/>
+      <title>DeepSeek Harness 0.1.23</title>
+      <pubDate>Tue, 15 Sep 2026 14:23:57 +0000</pubDate>
+      <sparkle:version>0.1.23</sparkle:version>
+      <sparkle:shortVersionString>0.1.23</sparkle:shortVersionString>
+      <enclosure url="https://github.com/1m01m0/deepseek-harness-desktop/releases/download/v0.1.23/DeepSeek-Harness-0.1.23-macos-arm64.zip" sparkle:edSignature="/T9OCQMU4dtiHE7g7gSAQdtjsjiHcxSTZ7LCFH8MmIaXbBOfZhcxOtX+KlMnI0bNNQXdkz5MTs6JklXYmlYyDQ==" length="109104393"/>
     </item>
   </channel>
 </rss>
