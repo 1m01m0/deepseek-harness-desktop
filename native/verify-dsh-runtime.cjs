@@ -62,7 +62,11 @@ async function verifyRuntime(modulesRoot) {
       const methods = contributions.flatMap(contribution => contribution.descriptors || [])
       const discovery = methods.find(method => method.id === '@deepseek-ai/dsh-llm#llm/discoverModels')
       assert.ok(discovery, 'generated discovery Remote is mounted')
-      const decoded = discovery.result.schema.parse(models)
+      const resultSchema = discovery.result.schema?.parse
+        ? discovery.result.schema
+        : discovery.result.create?.()
+      assert.ok(resultSchema?.parse, 'generated discovery Remote exposes its result decoder')
+      const decoded = resultSchema.parse(models)
       assert.deepEqual(Array.from(decoded[0].inputModalities), ['text', 'image'])
       await dispose()
       console.log('PASS: generated browser Remote decoder retains image metadata')

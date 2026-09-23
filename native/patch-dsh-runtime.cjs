@@ -41,6 +41,13 @@ function replaceOnce(file, before, after) {
   return true
 }
 
+function hasDiscoveryInputModalitiesSchema(source) {
+  const start = source.indexOf('llm_discoverModels_result$schema')
+  const end = source.indexOf('llm_listConfigurableProviders_result$schema', start)
+  if (start < 0 || end < 0) return false
+  return source.slice(start, end).includes('"inputModalities":')
+}
+
 const changes = []
 function patch(packageName, relativePath, before, after) {
   const file = packageFile(packageName, relativePath)
@@ -110,12 +117,16 @@ patch(
 } else {
   // Newer dsh moved discovery from host-apiproxy to the generated Remote
   // transport. Preserve metadata in its client decoder too, or Zod strips it.
-  patch(
-    'dsh-api-remotes',
-    'lib/client.js',
-    `const _deepseek_ai_dsh_llm_llm_discoverModels_result$schema = array(object({\n"id": string(),\n"name": string().optional(),\n"contextWindow": number().optional(),\n"maxTokens": number().optional()\n}));`,
-    `const _deepseek_ai_dsh_llm_llm_discoverModels_result$schema = array(object({\n"id": string(),\n"name": string().optional(),\n"contextWindow": number().optional(),\n"maxTokens": number().optional(),\n"inputModalities": array(union([literal("text"), literal("image")])).min(1).optional()\n}));`,
-  )
+  const remoteClient = packageFile('dsh-api-remotes', 'lib/client.js')
+  const remoteSource = fs.readFileSync(remoteClient, 'utf8')
+  if (!hasDiscoveryInputModalitiesSchema(remoteSource)) {
+    patch(
+      'dsh-api-remotes',
+      'lib/client.js',
+      `const _deepseek_ai_dsh_llm_llm_discoverModels_result$schema = array(object({\n"id": string(),\n"name": string().optional(),\n"contextWindow": number().optional(),\n"maxTokens": number().optional()\n}));`,
+      `const _deepseek_ai_dsh_llm_llm_discoverModels_result$schema = array(object({\n"id": string(),\n"name": string().optional(),\n"contextWindow": number().optional(),\n"maxTokens": number().optional(),\n"inputModalities": array(union([literal("text"), literal("image")])).min(1).optional()\n}));`,
+    )
+  }
 }
 
 patch(

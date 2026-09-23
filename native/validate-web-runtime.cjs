@@ -6,6 +6,19 @@ const { join } = require('node:path')
 const { tmpdir } = require('node:os')
 const { parseReadyUrl } = require('./electron/ready-url.cjs')
 
+function isSafeAuthRedirect(location, baseURL) {
+  try {
+    const base = new URL(baseURL)
+    const target = new URL(location, base)
+    return target.origin === base.origin
+      && target.pathname === '/'
+      && target.search === ''
+      && target.hash === ''
+      && !target.username
+      && !target.password
+  } catch { return false }
+}
+
 async function validateWebRuntime(nodeBin, dshBin) {
   const taskData = fs.mkdtempSync(join(tmpdir(), 'dsh-web-check-'))
   const env = Object.fromEntries(['PATH', 'SystemRoot', 'WINDIR', 'TMP', 'TEMP', 'LANG'].filter(key => process.env[key]).map(key => [key, process.env[key]]))
@@ -34,7 +47,7 @@ async function validateWebRuntime(nodeBin, dshBin) {
     if (response.status === 303) {
       // Match the browser's token -> cookie -> clean-root exchange. Never
       // send its cookie to a different origin, and never print the token.
-      if (response.headers.get('location') !== '/') throw new Error('unexpected authentication redirect')
+      if (!isSafeAuthRedirect(response.headers.get('location'), url)) throw new Error('unexpected authentication redirect')
       const cookie = response.headers.getSetCookie().map(value => value.split(';')[0]).join('; ')
       if (!cookie) throw new Error('authentication redirect did not issue a cookie')
       response = await fetch(new URL('/', url), { headers: { Cookie: cookie }, redirect: 'manual', signal: AbortSignal.timeout(15000) })
@@ -52,7 +65,7 @@ async function validateWebRuntime(nodeBin, dshBin) {
   }
 }
 
-module.exports = { validateWebRuntime }
+module.exports = { isSafeAuthRedirect, validateWebRuntime }
 if (require.main === module) {
   if (!process.argv[2] || !process.argv[3]) throw new Error('usage: validate-web-runtime.cjs <node binary> <dsh entry>')
   validateWebRuntime(process.argv[2], process.argv[3]).catch(error => { console.error(error.message); process.exitCode = 1 })
